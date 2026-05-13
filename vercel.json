@@ -7,18 +7,18 @@
       "config": { "distDir": "dist" }
     },
     {
-      "src": "api/index.ts",
+      "src": "server.ts",
       "use": "@vercel/node"
     }
   ],
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/api/index.ts"
+      "destination": "/server.ts"
     },
     {
       "source": "/verify",
-      "destination": "/api/index.ts"
+      "destination": "/server.ts"
     },
     {
       "source": "/(.*)",
