@@ -1,0 +1,12 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /banners/{userId}/{allPaths=**} {
+      // Allow read access to anyone (public banners)
+      allow read: if true;
+      // Allow write access only to the owner of the folder (authenticated user)
+      // or if it's the admin list from firestore rules (not directly possible here, so we'll just check auth for now)
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}

@@ -1,0 +1,154 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Phase 3: Primitive Definition
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.get('email_verified', false) == true) && (
+          request.auth.token.get('email', '').lower() == "alvicourse@gmail.com" || 
+          request.auth.token.get('email', '').lower() == "cdc@creativealvi.com" ||
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'student') == 'admin')
+        )
+      );
+    }
+
+    // Entity Validations
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'role']) &&
+             data.keys().size() <= 10 &&
+             data.uid is string && data.uid.size() <= 128 &&
+             data.email is string && data.email.size() <= 256 &&
+             data.role in ['admin', 'student'];
+    }
+
+    function isValidSeminar(data) {
+      return data.keys().hasAll(['title', 'date', 'status', 'createdBy']) &&
+             data.keys().size() <= 15 &&
+             data.title is string && data.title.size() <= 200 &&
+             data.status in ['upcoming', 'ongoing', 'completed'] &&
+             data.createdBy is string;
+    }
+
+    function isValidRegistration(data) {
+      return data.keys().hasAll(['seminarId', 'studentUid', 'registeredAt']) &&
+             data.keys().size() <= 10 &&
+             data.seminarId is string &&
+             data.studentUid == request.auth.uid;
+    }
+
+    function isValidAttendance(data) {
+      return data.keys().hasAll(['seminarId', 'studentUid', 'attended', 'markedAt']) &&
+             data.keys().size() <= 8 &&
+             data.seminarId is string &&
+             data.studentUid is string;
+    }
+
+    function isValidCertificate(data) {
+      return data.keys().hasAll(['seminarId', 'studentUid', 'issuedAt', 'verificationCode']) &&
+             data.keys().size() <= 10 &&
+             data.verificationCode is string && data.verificationCode.size() <= 50;
+    }
+
+    // ---------------------------------------------------------
+    // Rule Blocks
+    // ---------------------------------------------------------
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isOwner(userId) && isValidUser(incoming()) && 
+                    (incoming().role == 'student' || isAdmin());
+      allow update: if isSignedIn() && (isOwner(userId) || isAdmin()) && isValidUser(incoming()) && (
+        (incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'dept', 'photoUrl'])) ||
+        isAdmin()
+      );
+    }
+
+    match /seminars/{seminarId} {
+      allow read: if true; 
+      allow create: if isAdmin() && isValidSeminar(incoming()) && isValidId(seminarId);
+      allow update: if isAdmin() && isValidSeminar(incoming()) && (
+        !existing().get('status', 'upcoming') == 'completed' || isAdmin() // Terminal state lock check
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /registrations/{regId} {
+      allow read: if isSignedIn() && (isOwner(resource.data.studentUid) || isAdmin());
+      allow list: if isSignedIn() && (resource.data.studentUid == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isOwner(incoming().studentUid) && isValidRegistration(incoming()) && 
+                    exists(/databases/$(database)/documents/seminars/$(incoming().seminarId));
+      allow update, delete: if isAdmin();
+    }
+
+    match /attendance/{attId} {
+      allow read: if isSignedIn() && (isOwner(resource.data.studentUid) || isAdmin() || resource.data.attended == true);
+      allow create: if isAdmin() && isValidAttendance(incoming());
+      allow update: if isAdmin() && isValidAttendance(incoming());
+      allow delete: if isAdmin();
+    }
+
+    match /certificates/{certId} {
+      allow get: if true; // Public for verification via specific ID
+      allow list: if (isSignedIn() && (isOwner(resource.data.studentUid) || isAdmin())) ||
+                    (resource.data.verificationCode != null); // Allow public verify-by-code query
+      allow create: if isAdmin() && isValidCertificate(incoming());
+      allow update: if isAdmin() && isValidCertificate(incoming());
+      allow delete: if isAdmin();
+    }
+
+    match /certificateTemplates/{templateId} {
+      allow read: if isSignedIn(); 
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /feedback/{feedbackId} {
+      allow read: if isSignedIn() && (isOwner(resource.data.studentUid) || isAdmin());
+      allow list: if isSignedIn() && (resource.data.studentUid == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isOwner(incoming().studentUid) && (
+        exists(/databases/$(database)/documents/registrations/$(incoming().seminarId + '_' + request.auth.uid)) ||
+        isAdmin()
+      );
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /emailLogs/{logId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /siteSettings/{settingId} {
+      allow read: if (settingId in ['branding', 'referral']) || isAdmin();
+      allow write: if isAdmin();
+    }
+  }
+}

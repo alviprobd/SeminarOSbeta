@@ -1,0 +1,176 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile for students and admins.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["admin", "student"] },
+        "dept": { "type": "string", "description": "Department name for students" },
+        "displayName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Seminar": {
+      "title": "Seminar",
+      "description": "Seminar details created by admin.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "location": { "type": "string" },
+        "status": { "type": "string", "enum": ["upcoming", "ongoing", "completed"] },
+        "templateId": { "type": "string", "description": "ID of the certificate template to use" },
+        "checklist": {
+          "type": "object",
+          "properties": {
+            "venueBooked": { "type": "boolean" },
+            "linkPrinted": { "type": "boolean" },
+            "certificateSent": { "type": "boolean" }
+          }
+        },
+        "createdBy": { "type": "string", "description": "Admin UID" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "whatsappEnabled": { "type": "boolean" },
+        "whatsappLink": { "type": "string" },
+        "whatsappLinkSentAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "date", "status", "createdBy"]
+    },
+    "Registration": {
+      "title": "Registration",
+      "description": "Student registration for a seminar.",
+      "type": "object",
+      "properties": {
+        "seminarId": { "type": "string" },
+        "studentUid": { "type": "string" },
+        "studentEmail": { "type": "string" },
+        "studentName": { "type": "string" },
+        "studentDept": { "type": "string" },
+        "registeredAt": { "type": "string", "format": "date-time" },
+        "reminderSentAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["seminarId", "studentUid", "registeredAt"]
+    },
+    "Attendance": {
+      "title": "Attendance",
+      "description": "Attendance record for a seminar.",
+      "type": "object",
+      "properties": {
+        "seminarId": { "type": "string" },
+        "studentUid": { "type": "string" },
+        "attended": { "type": "boolean" },
+        "markedAt": { "type": "string", "format": "date-time" },
+        "followUpSentAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["seminarId", "studentUid", "attended", "markedAt"]
+    },
+    "Certificate": {
+      "title": "Certificate",
+      "description": "Issued certificate for a student.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "seminarId": { "type": "string" },
+        "seminarTitle": { "type": "string" },
+        "studentUid": { "type": "string" },
+        "studentName": { "type": "string" },
+        "issuedAt": { "type": "string", "format": "date-time" },
+        "verificationCode": { "type": "string" }
+      },
+      "required": ["seminarId", "studentUid", "issuedAt", "verificationCode"]
+    },
+    "CertificateTemplate": {
+      "title": "CertificateTemplate",
+      "description": "Customizable certificate template.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "backgroundImage": { "type": "string", "description": "URL or base64 of the background image" },
+        "elements": {
+          "type": "object",
+          "properties": {
+            "studentName": {
+              "type": "object",
+              "properties": {
+                "x": { "type": "number" },
+                "y": { "type": "number" },
+                "fontSize": { "type": "number" },
+                "color": { "type": "string" },
+                "fontWeight": { "type": "string" }
+              }
+            },
+            "seminarTitle": {
+              "type": "object",
+              "properties": {
+                "x": { "type": "number" },
+                "y": { "type": "number" },
+                "fontSize": { "type": "number" },
+                "color": { "type": "string" },
+                "fontWeight": { "type": "string" }
+              }
+            }
+          }
+        },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "backgroundImage", "elements", "createdBy"]
+    },
+    "Feedback": {
+      "title": "Feedback",
+      "description": "Student feedback for a seminar.",
+      "type": "object",
+      "properties": {
+        "seminarId": { "type": "string" },
+        "seminarTitle": { "type": "string" },
+        "studentUid": { "type": "string" },
+        "studentName": { "type": "string" },
+        "rating": { "type": "number" },
+        "comment": { "type": "string" },
+        "submittedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["seminarId", "studentUid", "rating", "submittedAt"]
+    },
+    "EmailLog": {
+      "title": "Email Log",
+      "description": "Log of emails sent by the system.",
+      "type": "object",
+      "properties": {
+        "to": { "type": "string" },
+        "subject": { "type": "string" },
+        "type": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "status": { "type": "string" }
+      },
+      "required": ["to", "subject", "timestamp"]
+    },
+    "SiteSetting": {
+      "title": "Site Setting",
+      "description": "General configuration for the seminar system.",
+      "type": "object",
+      "properties": {
+        "value": { "type": "object" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "updatedBy": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "users": { "schema": "User", "description": "User profiles" },
+    "seminars": { "schema": "Seminar", "description": "Seminar list" },
+    "registrations": { "schema": "Registration", "description": "Seminar registrations" },
+    "attendance": { "schema": "Attendance", "description": "Attendance records" },
+    "certificates": { "schema": "Certificate", "description": "Issued certificates" },
+    "certificateTemplates": { "schema": "CertificateTemplate", "description": "Custom certificate templates" },
+    "feedback": { "schema": "Feedback", "description": "Seminar feedback" },
+    "emailLogs": { "schema": "EmailLog", "description": "System email logs" },
+    "siteSettings": { "schema": "SiteSetting", "description": "System configuration" }
+  }
+}
