@@ -31,8 +31,13 @@ export function AdminSettings() {
     siteLogo: '',
     logoHeight: 40,
     siteName: 'Seminar OS',
+    mailMode: 'gmail' as 'gmail' | 'smtp',
     gmailEmail: '',
     gmailAppPassword: '',
+    // SMTP Specifics for 3rd party servers
+    smtpHost: '',
+    smtpPort: 465,
+    smtpSecure: true,
     // Referral & Ambassador Settings
     referralOptions: ['Social Media', 'Email', 'Friend/Colleague', 'Career Ambassador'],
     ambassadorCodes: [] as string[],
@@ -146,7 +151,10 @@ export function AdminSettings() {
         body: JSON.stringify({
           email: settings.gmailEmail,
           appPassword: settings.gmailAppPassword,
-          testRecipient
+          testRecipient,
+          smtpHost: settings.mailMode === 'gmail' ? '' : settings.smtpHost,
+          smtpPort: settings.smtpPort,
+          smtpSecure: settings.smtpSecure
         }),
       });
 
@@ -431,25 +439,50 @@ export function AdminSettings() {
                   </div>
                 </div>
 
+                <div className="flex gap-2 p-1.5 bg-slate-100 rounded-2xl mb-8 w-fit">
+                  <button
+                    onClick={() => setSettings({ ...settings, mailMode: 'gmail' })}
+                    className={cn(
+                      "px-6 py-2 rounded-xl text-xs font-bold transition-all",
+                      settings.mailMode === 'gmail' 
+                        ? "bg-white text-brand-teal-light shadow-sm" 
+                        : "text-slate-500 hover:text-slate-700"
+                    )}
+                  >
+                    Gmail Mode
+                  </button>
+                  <button
+                    onClick={() => setSettings({ ...settings, mailMode: 'smtp' })}
+                    className={cn(
+                      "px-6 py-2 rounded-xl text-xs font-bold transition-all",
+                      settings.mailMode === 'smtp' 
+                        ? "bg-white text-brand-teal-light shadow-sm" 
+                        : "text-slate-500 hover:text-slate-700"
+                    )}
+                  >
+                    SMTP Mode
+                  </button>
+                </div>
+
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
                       <Mail className="w-4 h-4" />
-                      Gmail Address
+                      {settings.mailMode === 'gmail' ? 'Gmail Address' : 'Email Address'}
                     </label>
                     <input 
                       type="email"
                       value={settings.gmailEmail}
                       onChange={(e) => setSettings({ ...settings, gmailEmail: e.target.value })}
                       className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-teal-light outline-none transition-all font-medium"
-                      placeholder="your-email@gmail.com"
+                      placeholder={settings.mailMode === 'gmail' ? "your-email@gmail.com" : "info@yourdomain.com"}
                     />
                   </div>
 
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
                       <Key className="w-4 h-4" />
-                      App Password
+                      {settings.mailMode === 'gmail' ? 'App Password' : 'Password'}
                     </label>
                     <input 
                       type="password"
@@ -460,6 +493,49 @@ export function AdminSettings() {
                     />
                   </div>
                 </div>
+
+                {settings.mailMode === 'smtp' && (
+                  <div className="grid md:grid-cols-3 gap-4 p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">SMTP Host</label>
+                      <input 
+                        type="text"
+                        value={settings.smtpHost}
+                        onChange={(e) => setSettings({ ...settings, smtpHost: e.target.value })}
+                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-teal-light outline-none transition-all font-medium"
+                        placeholder="e.g. smtp.gmail.com"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">SMTP Port</label>
+                      <input 
+                        type="number"
+                        value={settings.smtpPort}
+                        onChange={(e) => setSettings({ ...settings, smtpPort: parseInt(e.target.value) || 465 })}
+                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-teal-light outline-none transition-all font-medium"
+                        placeholder="465"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Secure (SSL/TLS)</label>
+                      <div className="flex items-center gap-3 pt-1">
+                        <button
+                          onClick={() => setSettings({ ...settings, smtpSecure: !settings.smtpSecure })}
+                          className={cn(
+                            "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none",
+                            settings.smtpSecure ? "bg-brand-teal-light" : "bg-slate-300"
+                          )}
+                        >
+                          <span className={cn(
+                            "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
+                            settings.smtpSecure ? "translate-x-6" : "translate-x-1"
+                          )} />
+                        </button>
+                        <span className="text-xs font-bold text-slate-600">{settings.smtpSecure ? 'Enabled' : 'Disabled'}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="pt-4 border-t border-slate-100">
                   <h3 className="text-sm font-bold text-slate-900 mb-4">Test Connection</h3>

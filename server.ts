@@ -53,9 +53,15 @@ try {
 let firestore: any;
 try {
   const app = getApps()[0];
-  firestore = firebaseConfig.firestoreDatabaseId 
-    ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+  const dbId = firebaseConfig.firestoreDatabaseId;
+  console.log(`Initializing Firestore with Database ID: ${dbId || "(default)"} on Project: ${firebaseConfig.projectId}`);
+  
+  firestore = dbId 
+    ? getFirestore(app, dbId)
     : getFirestore(app);
+    
+  // Simple check to see if we can access the project
+  console.log(`Firestore instance initialized for project: ${firestore.projectId}`);
 } catch (error) {
   console.error("Failed to initialize Firestore:", error);
 }
@@ -100,8 +106,11 @@ async function startServer() {
           return next();
         }
       } catch (fsError) {
-        console.error('Firestore admin check failed:', fsError);
-        // Fall through to 403 if Firestore check fails and not super-admin
+        console.error('Firestore admin check failed with error:', fsError);
+        // If we get PERMISSION_DENIED here, it confirms a server-wide issue
+        if (fsError instanceof Error && fsError.message.includes('PERMISSION_DENIED')) {
+          console.error('CRITICAL: Server identity lacks PERMISSION to read "users" collection.');
+        }
       }
 
       res.status(403).json({ error: 'Forbidden: Admin access required' });
@@ -115,16 +124,16 @@ async function startServer() {
   let mailTransporter: any = null;
   let currentConfig: string = "";
 
-  const getTransporter = (email: string, pass: string) => {
-    const configKey = `${email}:${pass}`;
+  const getTransporter = (email: string, pass: string, options?: { host?: string, port?: number, secure?: boolean }) => {
+    const configKey = `${email}:${pass}:${options?.host || ""}:${options?.port || ""}:${options?.secure}`;
     if (mailTransporter && currentConfig === configKey) {
       return mailTransporter;
     }
-
-    const smtpHost = process.env.SMTP_HOST; // e.g., smtp.gmail.com or mail.yourdomain.com
-    const smtpPort = parseInt(process.env.SMTP_PORT || "465");
-    const smtpSecure = process.env.SMTP_SECURE !== "false"; // Default to true (SSL/TLS)
-
+ 
+    const smtpHost = options?.host || process.env.SMTP_HOST; // e.g., smtp.gmail.com or mail.yourdomain.com
+    const smtpPort = options?.port || parseInt(process.env.SMTP_PORT || "465");
+    const smtpSecure = options?.secure !== undefined ? options.secure : (process.env.SMTP_SECURE !== "false"); // Default to true (SSL/TLS)
+ 
     const transportConfig: any = {
       pool: true,
       maxConnections: 5,
@@ -158,25 +167,37 @@ async function startServer() {
     sentBy: string;
   }) => {
     try {
-      await firestore.collection('emailLogs').add({
+      if (!firestore) {
+         console.warn('Cannot log email: Firestore not initialized');
+         return;
+      }
+      const logData = {
         ...emailData,
         timestamp: new Date().toISOString(),
-      });
-    } catch (err) {
+      };
+      
+      console.log(`Attempting to log email in collection "emailLogs" with data:`, JSON.stringify(logData));
+      
+      const docRef = await firestore.collection('emailLogs').add(logData);
+      console.log(`Email log search successful. Doc ID: ${docRef.id}`);
+    } catch (err: any) {
       console.error('Failed to log email to Firestore:', err);
+      if (err.message && err.message.includes('PERMISSION_DENIED')) {
+          console.error(`PERMISSIONS DEBUG: dbId=${firebaseConfig.firestoreDatabaseId}, projectId=${firebaseConfig.projectId}`);
+      }
     }
   };
 
   // API routes
   app.post("/api/send-test-email", authenticate, async (req, res) => {
-    const { email, appPassword, testRecipient } = req.body;
-
+    const { email, appPassword, testRecipient, smtpHost, smtpPort, smtpSecure } = req.body;
+ 
     if (!email || !appPassword || !testRecipient) {
       return res.status(400).json({ error: "Missing required fields" });
     }
-
+ 
     try {
-      const transporter = getTransporter(email, appPassword);
+      const transporter = getTransporter(email, appPassword, { host: smtpHost, port: smtpPort, secure: smtpSecure });
 
       await transporter.sendMail({
         from: email,
@@ -222,12 +243,18 @@ async function startServer() {
       attachmentBase64, 
       fileName,
       gmailEmail: bodyEmail,
-      gmailAppPassword: bodyPass
+      gmailAppPassword: bodyPass,
+      smtpHost: bodyHost,
+      smtpPort: bodyPort,
+      smtpSecure: bodySecure
     } = req.body;
-
+ 
     let gmailEmail = bodyEmail;
     let gmailAppPassword = bodyPass;
-
+    let smtpHost = bodyHost;
+    let smtpPort = bodyPort;
+    let smtpSecure = bodySecure;
+ 
     try {
       // If not provided in body, try to fetch from Firestore
       if (!gmailEmail || !gmailAppPassword) {
@@ -237,21 +264,29 @@ async function startServer() {
           if (settings) {
             gmailEmail = gmailEmail || settings.gmailEmail;
             gmailAppPassword = gmailAppPassword || settings.gmailAppPassword;
+            
+            // Only use SMTP fields if mode is explicitly set to smtp in settings,
+            // or if they were already provided in the request body
+            if (settings.mailMode === 'smtp' || bodyHost) {
+              smtpHost = bodyHost || settings.smtpHost;
+              smtpPort = bodyPort || settings.smtpPort;
+              smtpSecure = bodySecure !== undefined ? bodySecure : settings.smtpSecure;
+            }
           }
         } catch (fsError) {
           console.error("Failed to fetch settings from Firestore:", fsError);
         }
       }
-
+ 
       if (!gmailEmail || !gmailAppPassword) {
-        return res.status(500).json({ error: "Gmail credentials not configured" });
+        return res.status(500).json({ error: "Email credentials not configured" });
       }
-
+ 
       if (!to || !subject || !body) {
         return res.status(400).json({ error: "Missing required fields" });
       }
-
-      const transporter = getTransporter(gmailEmail, gmailAppPassword);
+ 
+      const transporter = getTransporter(gmailEmail, gmailAppPassword, { host: smtpHost, port: smtpPort, secure: smtpSecure });
       
       const mailOptions: any = {
         from: gmailEmail,
@@ -306,12 +341,18 @@ async function startServer() {
     const { 
       emails, // Array of { to, subject, body, attachmentBase64, fileName }
       gmailEmail: bodyEmail,
-      gmailAppPassword: bodyPass
+      gmailAppPassword: bodyPass,
+      smtpHost: bodyHost,
+      smtpPort: bodyPort,
+      smtpSecure: bodySecure
     } = req.body;
 
     let gmailEmail = bodyEmail;
     let gmailAppPassword = bodyPass;
-
+    let smtpHost = bodyHost;
+    let smtpPort = bodyPort;
+    let smtpSecure = bodySecure;
+ 
     try {
       // If not provided in body, try to fetch from Firestore
       if (!gmailEmail || !gmailAppPassword) {
@@ -321,21 +362,29 @@ async function startServer() {
           if (settings) {
             gmailEmail = gmailEmail || settings.gmailEmail;
             gmailAppPassword = gmailAppPassword || settings.gmailAppPassword;
+            
+            // Only use SMTP fields if mode is explicitly set to smtp in settings,
+            // or if they were already provided in the request body
+            if (settings.mailMode === 'smtp' || bodyHost) {
+              smtpHost = bodyHost || settings.smtpHost;
+              smtpPort = bodyPort || settings.smtpPort;
+              smtpSecure = bodySecure !== undefined ? bodySecure : settings.smtpSecure;
+            }
           }
         } catch (fsError) {
           console.error("Failed to fetch settings from Firestore:", fsError);
         }
       }
-
+ 
       if (!gmailEmail || !gmailAppPassword) {
-        return res.status(500).json({ error: "Gmail credentials not configured" });
+        return res.status(500).json({ error: "Email credentials not configured" });
       }
 
       if (!emails || !Array.isArray(emails)) {
         return res.status(400).json({ error: "Missing required fields" });
       }
 
-      const transporter = getTransporter(gmailEmail, gmailAppPassword);
+      const transporter = getTransporter(gmailEmail, gmailAppPassword, { host: smtpHost, port: smtpPort, secure: smtpSecure });
       
       // Send all emails in the batch
       const results = await Promise.allSettled(emails.map(async (emailData) => {
@@ -384,9 +433,20 @@ async function startServer() {
       const successful = results.filter(r => r.status === 'fulfilled').length;
       const failed = results.filter(r => r.status === 'rejected').length;
 
+      if (emails.length > 0 && successful === 0) {
+        return res.status(500).json({
+          error: "All emails in this batch failed to send",
+          successful,
+          failed,
+          details: results.map(r => r.status === 'rejected' ? (r as PromiseRejectedResult).reason.message : 'success')
+        });
+      }
+
       res.json({ 
         success: true, 
         message: `Processed ${emails.length} emails. Success: ${successful}, Failed: ${failed}`,
+        successful,
+        failed,
         results: results.map(r => r.status)
       });
     } catch (error: any) {

@@ -102,21 +102,23 @@ Once your application is running at your domain, follow these steps to activate 
 2.  Go to the **Admin Dashboard**.
 3.  Click on the **Settings** tab.
 4.  Find the **Email Configuration** section.
-5.  Enter your **SMTP/Gmail Email** and the **16-character App Password** you created in Step 2.
-6.  Click **Save Settings**.
-7.  Click **Test SMTP Connection** to verify it's working. If you receive a test email, your system is fully operational.
+5.  **Configure your Mail Server**:
+    *   **Gmail (Easiest)**: Enter your Gmail address and the 16-character **App Password**. Leave the **SMTP Host** field empty.
+    *   **Custom SMTP**: Enter your email address, password, and fill in the **SMTP Host** (e.g., `mail.yourdomain.com`), **SMTP Port** (e.g., `465`), and toggle **Secure** if needed.
+6.  Click **Save All Settings**.
+7.  Click **Send Test** to verify it's working. If you receive a test email, your system is fully operational.
 
 ---
 
 ## 7. How it All Works Together
 
 *   **Frontend**: Served from the `dist` folder.
-*   **Leaderboard**: The leaderboard is public. It allows anyone (even guest users) to see the top participants by checking attendance records where `attended` is true.
-*   **Database**: Connects to Firebase Cloud Firestore.
-*   **Verification**: The `/verify?code=XXX` link uses the backend server to automatically generate social media previews (SEO).
-*   **Mailing**: Uses the credentials you saved in the Dashboard (Settings panel) with the App Password.
+*   **Leaderboard**: Publicly visible, showing top participants based on attendance.
+*   **Database**: Powered by Firebase Cloud Firestore for real-time data.
+*   **Verification**: Social-media-ready verification links via the backend.
+*   **Mailing**: Flexible delivery via Gmail or any 3rd party SMTP provider.
 
 ### Troubleshooting
-*   **Leaderboard Errors**: If the leaderboard fails to load, ensure your Firestore rules allow public reading of attended records (this was fixed in the latest update).
-*   **Page Not Found (404) on Refresh**: This app uses a "Single Page" design. The `server.js` handles routing, but if you have issues, ensure the Node.js app is properly pointed to `dist/server.js`.
-*   **Emails Not Sending**: Double-check your **App Password**. Some hosts block port 465; if so, try port 587 with `SMTP_SECURE=false`.
+*   **SMTP Connection Refused**: Most shared hosts block port 465 (SSL) for outgoing mail unless it's their own server. Try port 587 (TLS) with **Secure** disabled if 465 fails.
+*   **Leaderboard Errors**: Ensure your Firestore rules are published.
+*   **404 on Refresh**: The Node.js app handles routing; ensure it's pointed correctly to `dist/server.js`.

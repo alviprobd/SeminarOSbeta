@@ -381,10 +381,13 @@ export function AdminDashboard() {
               body: JSON.stringify({
                 gmailEmail: siteSettings.gmailEmail,
                 gmailAppPassword: siteSettings.gmailAppPassword,
+                smtpHost: siteSettings.mailMode === 'gmail' ? '' : siteSettings.smtpHost,
+                smtpPort: siteSettings.smtpPort,
+                smtpSecure: siteSettings.smtpSecure,
                 emails: emailBatchData
               }),
             });
-
+            
             if (response.ok) {
               const batch = writeBatch(db);
               pendingReminders.forEach(r => {
@@ -448,6 +451,9 @@ export function AdminDashboard() {
               body: JSON.stringify({
                 gmailEmail: siteSettings.gmailEmail,
                 gmailAppPassword: siteSettings.gmailAppPassword,
+                smtpHost: siteSettings.mailMode === 'gmail' ? '' : siteSettings.smtpHost,
+                smtpPort: siteSettings.smtpPort,
+                smtpSecure: siteSettings.smtpSecure,
                 emails: emailBatchData
               }),
             });
@@ -657,6 +663,9 @@ export function AdminDashboard() {
         body: JSON.stringify({
           gmailEmail: siteSettings.gmailEmail,
           gmailAppPassword: siteSettings.gmailAppPassword,
+          smtpHost: siteSettings.mailMode === 'gmail' ? '' : siteSettings.smtpHost,
+          smtpPort: siteSettings.smtpPort,
+          smtpSecure: siteSettings.smtpSecure,
           emails: emailBatchData
         }),
       });
@@ -856,6 +865,9 @@ export function AdminDashboard() {
             body: JSON.stringify({
               gmailEmail: siteSettings.gmailEmail,
               gmailAppPassword: siteSettings.gmailAppPassword,
+              smtpHost: siteSettings.mailMode === 'gmail' ? '' : siteSettings.smtpHost,
+              smtpPort: siteSettings.smtpPort,
+              smtpSecure: siteSettings.smtpSecure,
               emails: emailBatchData
             }),
           });
@@ -865,12 +877,18 @@ export function AdminDashboard() {
             throw new Error(errorData.error || `Failed to send batch starting at ${i + 1}`);
           }
           
+          const batchResult = await response.json();
+          if (batchResult.failed > 0) {
+            console.warn(`Some emails in batch failed: ${batchResult.failed} failed out of ${emailBatchData.length}`);
+            toast.warning(`Sent ${batchResult.successful} emails, but ${batchResult.failed} failed. Check logs for details.`);
+          }
+          
           setProgress(Math.min(100, Math.round(((i + emailBatchData.length) / totalCertificates) * 100)));
-          console.log(`Batch of ${emailBatchData.length} emails sent.`);
+          console.log(`Batch results: ${batchResult.successful} success, ${batchResult.failed} failed.`);
         }
       }
 
-      toast.success(`Successfully sent ${totalCertificates} emails with PDF certificates!`);
+      toast.success(`Sent ${totalCertificates} certificates! Check email logs for delivery status of each.`);
     } catch (error: any) {
       console.error('Error sending emails:', error);
       toast.error(error.message || 'Failed to send emails');
