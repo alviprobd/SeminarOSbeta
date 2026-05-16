@@ -65,6 +65,10 @@ export function AttendancePage() {
           setSeminar({ id: semDoc.id, ...semDoc.data() });
           
           if (auth.currentUser) {
+            // Fetch user profile for name and dept
+            const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+            const userData = userDoc.data();
+
             // Check registration
             const regQ = query(
               collection(db, 'registrations'), 
@@ -104,10 +108,16 @@ export function AttendancePage() {
 
     setSubmitting(true);
     try {
+      // Fetch current user data to ensure we have the latest name and dept
+      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+      const userData = userDoc.data();
+
       await setDoc(doc(db, 'attendance', `${seminarId}_${auth.currentUser.uid}`), {
         seminarId,
         studentUid: auth.currentUser.uid,
         studentEmail: auth.currentUser.email,
+        studentName: userData?.displayName || auth.currentUser.displayName || 'Student',
+        studentDept: userData?.dept || 'N/A',
         attended,
         markedAt: new Date().toISOString(),
       });

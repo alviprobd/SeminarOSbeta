@@ -84,7 +84,8 @@ service cloud.firestore {
     // ---------------------------------------------------------
 
     match /users/{userId} {
-      allow read: if isSignedIn();
+      allow get: if true;
+      allow list: if isSignedIn();
       allow create: if isSignedIn() && isOwner(userId) && isValidUser(incoming()) && 
                     (incoming().role == 'student' || isAdmin());
       allow update: if isSignedIn() && (isOwner(userId) || isAdmin()) && isValidUser(incoming()) && (
@@ -111,9 +112,10 @@ service cloud.firestore {
     }
 
     match /attendance/{attId} {
-      allow read: if isSignedIn() && (isOwner(resource.data.studentUid) || isAdmin() || resource.data.attended == true);
-      allow create: if isAdmin() && isValidAttendance(incoming());
-      allow update: if isAdmin() && isValidAttendance(incoming());
+      allow read: if (resource.data.get('attended', false) == true) || 
+                    (isSignedIn() && (isOwner(resource.data.studentUid) || isAdmin()));
+      allow create: if (isAdmin() || (isSignedIn() && isOwner(incoming().studentUid))) && isValidAttendance(incoming());
+      allow update: if (isAdmin() || (isSignedIn() && isOwner(incoming().studentUid))) && isValidAttendance(incoming());
       allow delete: if isAdmin();
     }
 

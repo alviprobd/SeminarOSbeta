@@ -565,6 +565,8 @@ export function AdminDashboard() {
           seminarId: selectedSeminar.id,
           studentUid,
           studentEmail: participant?.studentEmail || '',
+          studentName: participant?.studentName || 'Student',
+          studentDept: participant?.studentDept || 'N/A',
           attended: true,
           markedAt: new Date().toISOString(),
         });

@@ -3,13 +3,10 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import fs from "fs";
 import nodemailer from "nodemailer";
-import { initializeApp, getApps, cert } from "firebase-admin/app";
+import * as admin from "firebase-admin";
+import { initializeApp, getApps } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const firebaseConfig = JSON.parse(fs.readFileSync(path.join(__dirname, "firebase-applet-config.json"), "utf8"));
+import firebaseConfig from "./firebase-applet-config.json";
 
 import { getFirestore } from "firebase-admin/firestore";
 
@@ -21,94 +18,55 @@ declare global {
   }
 }
 
-// Initialize Firebase Admin
-let firestore: any;
-let authAdmin: any;
-
-function initializeFirebase() {
-  try {
-    if (!getApps().length) {
-      console.log('Initializing Firebase Admin with project:', firebaseConfig.projectId);
-      
-      let credential = undefined;
-      if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-        try {
-          credential = cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT));
-          console.log('Using service account from environment variable');
-        } catch (e) {
-          console.error('Invalid FIREBASE_SERVICE_ACCOUNT format:', e);
-        }
+try {
+  // Initialize Firebase Admin
+  if (!getApps().length) {
+    const serviceAccountVar = process.env.FIREBASE_SERVICE_ACCOUNT;
+    
+    if (serviceAccountVar) {
+      try {
+        const serviceAccount = JSON.parse(serviceAccountVar);
+        initializeApp({
+          credential: admin.credential.cert(serviceAccount),
+          projectId: firebaseConfig.projectId,
+        });
+        console.log("Firebase Admin initialized with Service Account from environment variable.");
+      } catch (parseError) {
+        console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT environment variable:", parseError);
+        // Fallback to default
+        initializeApp({
+          projectId: firebaseConfig.projectId,
+        });
       }
-
+    } else {
+      // Standard initialization for Google Cloud environments
       initializeApp({
-        credential,
         projectId: firebaseConfig.projectId,
       });
+      console.log("Firebase Admin initialized with default project ID.");
     }
-    const app = getApps()[0];
-    firestore = firebaseConfig.firestoreDatabaseId 
-      ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
-      : getFirestore(app);
-    authAdmin = getAuth(app);
-    console.log(`Firestore initialized for database: ${firebaseConfig.firestoreDatabaseId || '(default)'}`);
-    return true;
-  } catch (error) {
-    console.error("Failed to initialize Firebase Admin/Firestore:", error);
-    return false;
   }
+} catch (error) {
+  console.error("Failed to initialize Firebase Admin:", error);
 }
 
-initializeFirebase();
+let firestore: any;
+try {
+  const app = getApps()[0];
+  firestore = firebaseConfig.firestoreDatabaseId 
+    ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+    : getFirestore(app);
+} catch (error) {
+  console.error("Failed to initialize Firestore:", error);
+}
 
-export async function setupApp() {
-  const app = express();
-  const PORT = Number(process.env.PORT) || 3000;
+async function startServer() {
+  console.log(`Starting server in ${process.env.NODE_ENV || 'development'} mode...`);
+  try {
+    const app = express();
+    const PORT = 3000;
 
   app.use(express.json({ limit: '100mb' }));
-
-  // Health check endpoint
-  app.get("/api/ping", (req, res) => {
-    res.json({ 
-      status: "ok", 
-      time: new Date().toISOString(),
-      firestore: !!firestore,
-      env: process.env.NODE_ENV,
-      vercel: !!process.env.VERCEL
-    });
-  });
-
-  // Helper to log emails to Firestore
-  const logEmail = async (emailData: {
-    to: string;
-    subject: string;
-    status: 'sent' | 'failed';
-    error?: string;
-    type: 'certificate' | 'test' | 'bulk';
-    sentBy: string;
-  }) => {
-    if (!firestore) {
-      console.warn('Cannot log email: Firestore not initialized');
-      return;
-    }
-    try {
-      await firestore.collection('emailLogs').add({
-        ...emailData,
-        timestamp: new Date().toISOString(),
-      });
-      console.log(`Logged ${emailData.status} email to ${emailData.to}`);
-    } catch (err) {
-      console.error('Failed to log email to Firestore:', err);
-    }
-  };
-
-  // Add a system log on startup to verify logging is working
-  logEmail({
-    to: 'System',
-    subject: 'Seminar OS Email System Started',
-    status: 'sent',
-    type: 'test',
-    sentBy: 'Internal'
-  }).catch(e => console.error('Startup log failed', e));
 
   // Middleware to verify Firebase ID Token
   const authenticate = async (req: any, res: any, next: any) => {
@@ -119,16 +77,7 @@ export async function setupApp() {
 
     const idToken = authHeader.split('Bearer ')[1];
     try {
-      if (!authAdmin) {
-        console.log('Auth Admin not ready, attempting re-initialization');
-        initializeFirebase();
-      }
-      
-      if (!authAdmin) {
-        return res.status(500).json({ error: 'Firebase Auth not initialized' });
-      }
-
-      const decodedToken = await authAdmin.verifyIdToken(idToken);
+      const decodedToken = await getAuth().verifyIdToken(idToken);
       req.user = decodedToken;
       
       // email_verified check for security
@@ -143,23 +92,22 @@ export async function setupApp() {
       }
       
       // 2. Otherwise, check Firestore for admin role
-      if (firestore) {
-        try {
-          const userDoc = await firestore.collection('users').doc(decodedToken.uid).get();
-          const userData = userDoc.data();
-          
-          if (userData && userData.role === 'admin') {
-            return next();
-          }
-        } catch (fsError) {
-          console.error('Firestore admin check failed:', fsError);
+      try {
+        const userDoc = await firestore.collection('users').doc(decodedToken.uid).get();
+        const userData = userDoc.data();
+        
+        if (userData && userData.role === 'admin') {
+          return next();
         }
+      } catch (fsError) {
+        console.error('Firestore admin check failed:', fsError);
+        // Fall through to 403 if Firestore check fails and not super-admin
       }
 
       res.status(403).json({ error: 'Forbidden: Admin access required' });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error verifying token:', error);
-      res.status(401).json({ error: 'Unauthorized: Invalid token', details: error.message });
+      res.status(401).json({ error: 'Unauthorized: Invalid token' });
     }
   };
 
@@ -173,18 +121,50 @@ export async function setupApp() {
       return mailTransporter;
     }
 
-    mailTransporter = nodemailer.createTransport({
-      service: "gmail",
-      pool: true, // Use connection pooling
+    const smtpHost = process.env.SMTP_HOST; // e.g., smtp.gmail.com or mail.yourdomain.com
+    const smtpPort = parseInt(process.env.SMTP_PORT || "465");
+    const smtpSecure = process.env.SMTP_SECURE !== "false"; // Default to true (SSL/TLS)
+
+    const transportConfig: any = {
+      pool: true,
       maxConnections: 5,
       maxMessages: 100,
       auth: {
         user: email,
         pass: pass,
       },
-    });
+    };
+
+    if (smtpHost) {
+      transportConfig.host = smtpHost;
+      transportConfig.port = smtpPort;
+      transportConfig.secure = smtpSecure;
+    } else {
+      transportConfig.service = "gmail";
+    }
+
+    mailTransporter = nodemailer.createTransport(transportConfig);
     currentConfig = configKey;
     return mailTransporter;
+  };
+
+  // Helper to log emails to Firestore
+  const logEmail = async (emailData: {
+    to: string;
+    subject: string;
+    status: 'sent' | 'failed';
+    error?: string;
+    type: 'certificate' | 'test' | 'bulk';
+    sentBy: string;
+  }) => {
+    try {
+      await firestore.collection('emailLogs').add({
+        ...emailData,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.error('Failed to log email to Firestore:', err);
+    }
   };
 
   // API routes
@@ -245,23 +225,21 @@ export async function setupApp() {
       gmailAppPassword: bodyPass
     } = req.body;
 
-    let gmailEmail = bodyEmail || process.env.GMAIL_EMAIL;
-    let gmailAppPassword = bodyPass || process.env.GMAIL_APP_PASSWORD;
+    let gmailEmail = bodyEmail;
+    let gmailAppPassword = bodyPass;
 
     try {
-      // If not provided in body or env, try to fetch from Firestore
+      // If not provided in body, try to fetch from Firestore
       if (!gmailEmail || !gmailAppPassword) {
-        if (firestore) {
-          try {
-            const settingsDoc = await firestore.collection('siteSettings').doc('general').get();
-            const settings = settingsDoc.data();
-            if (settings) {
-              gmailEmail = gmailEmail || settings.gmailEmail;
-              gmailAppPassword = gmailAppPassword || settings.gmailAppPassword;
-            }
-          } catch (fsError) {
-            console.error("Failed to fetch settings from Firestore:", fsError);
+        try {
+          const settingsDoc = await firestore.collection('siteSettings').doc('general').get();
+          const settings = settingsDoc.data();
+          if (settings) {
+            gmailEmail = gmailEmail || settings.gmailEmail;
+            gmailAppPassword = gmailAppPassword || settings.gmailAppPassword;
           }
+        } catch (fsError) {
+          console.error("Failed to fetch settings from Firestore:", fsError);
         }
       }
 
@@ -331,23 +309,21 @@ export async function setupApp() {
       gmailAppPassword: bodyPass
     } = req.body;
 
-    let gmailEmail = bodyEmail || process.env.GMAIL_EMAIL;
-    let gmailAppPassword = bodyPass || process.env.GMAIL_APP_PASSWORD;
+    let gmailEmail = bodyEmail;
+    let gmailAppPassword = bodyPass;
 
     try {
-      // If not provided in body or env, try to fetch from Firestore
+      // If not provided in body, try to fetch from Firestore
       if (!gmailEmail || !gmailAppPassword) {
-        if (firestore) {
-          try {
-            const settingsDoc = await firestore.collection('siteSettings').doc('general').get();
-            const settings = settingsDoc.data();
-            if (settings) {
-              gmailEmail = gmailEmail || settings.gmailEmail;
-              gmailAppPassword = gmailAppPassword || settings.gmailAppPassword;
-            }
-          } catch (fsError) {
-            console.error("Failed to fetch settings from Firestore:", fsError);
+        try {
+          const settingsDoc = await firestore.collection('siteSettings').doc('general').get();
+          const settings = settingsDoc.data();
+          if (settings) {
+            gmailEmail = gmailEmail || settings.gmailEmail;
+            gmailAppPassword = gmailAppPassword || settings.gmailAppPassword;
           }
+        } catch (fsError) {
+          console.error("Failed to fetch settings from Firestore:", fsError);
         }
       }
 
@@ -423,15 +399,12 @@ export async function setupApp() {
   });
 
   // Vite middleware for development
-  if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
+  if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
-  } else if (process.env.VERCEL) {
-    // On Vercel, static files are served by the platform
-    console.log('Running on Vercel, skipping static file serving from Express');
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
@@ -471,37 +444,12 @@ export async function setupApp() {
     });
   }
 
-  return { app, PORT };
-}
-
-// Global promise for the app instance to reuse in serverless environments
-const appPromise = setupApp();
-
-// Vercel entry point
-export default async (req: any, res: any) => {
-  try {
-    const { app } = await appPromise;
-    return app(req, res);
-  } catch (error: any) {
-    console.error("Vercel entry point error:", error);
-    if (!res.headersSent) {
-      res.status(500).json({ 
-        error: "Internal Server Error", 
-        details: error.message,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-      });
-    }
-  }
-};
-
-// Local / Container start
-if (!process.env.VERCEL) {
-  appPromise.then(({ app, PORT }) => {
-    console.log(`Starting server in ${process.env.NODE_ENV || 'development'} mode...`);
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server running on http://localhost:${PORT}`);
-    });
-  }).catch(error => {
-    console.error("Failed to start server:", error);
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on http://localhost:${PORT}`);
   });
+  } catch (error) {
+    console.error("Failed to start server:", error);
+  }
 }
+
+startServer();

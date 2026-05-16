@@ -34,50 +34,77 @@ export function Leaderboard() {
         );
 
         const attSnapshot = await getDocs(attQ);
-        const counts: Record<string, number> = {};
+        const participantData: Record<string, { count: number, name: string, dept: string }> = {};
 
         attSnapshot.docs.forEach(doc => {
           const data = doc.data();
           const isThisMonth = data.markedAt >= monthStart && data.markedAt <= monthEnd;
           
           if (isThisMonth) {
-            counts[data.studentUid] = (counts[data.studentUid] || 0) + 1;
+            if (!participantData[data.studentUid]) {
+              participantData[data.studentUid] = { 
+                count: 0, 
+                name: data.studentName || 'Anonymous Student', 
+                dept: data.studentDept || 'N/A' 
+              };
+            }
+            participantData[data.studentUid].count++;
           }
         });
 
         // If no one is active this month, show all time
-        if (Object.keys(counts).length === 0) {
+        if (Object.keys(participantData).length === 0) {
           attSnapshot.docs.forEach(doc => {
             const data = doc.data();
-            counts[data.studentUid] = (counts[data.studentUid] || 0) + 1;
+            if (!participantData[data.studentUid]) {
+              participantData[data.studentUid] = { 
+                count: 0, 
+                name: data.studentName || 'Anonymous Student', 
+                dept: data.studentDept || 'N/A' 
+              };
+            }
+            participantData[data.studentUid].count++;
           });
         }
 
-        // Sort by count and take top 5
-        const sortedUids = Object.entries(counts)
-          .sort(([, a], [, b]) => b - a)
+        // Sort and take top 5 UIDs
+        const sortedUids = Object.entries(participantData)
+          .sort(([, a], [, b]) => b.count - a.count)
           .slice(0, 5);
 
-        // Fetch user details for the top 5
+        // Fetch user details for the top 5 to ensure we have the real names and depts
         const topData = await Promise.all(
-          sortedUids.map(async ([uid, count]) => {
+          sortedUids.map(async ([uid, data]) => {
             try {
+              // Try to fetch from users collection first for latest info
               const userDoc = await getDoc(doc(db, 'users', uid));
-              const userData = userDoc.data();
-              const deptShort = DEPARTMENTS.find(d => d.name === userData?.dept || d.short === userData?.dept)?.short || userData?.dept || 'N/A';
+              if (userDoc.exists()) {
+                const userData = userDoc.data();
+                const deptShort = DEPARTMENTS.find(d => d.name === userData.dept || d.short === userData.dept)?.short || userData.dept || 'N/A';
+                return {
+                  uid,
+                  count: data.count,
+                  name: userData.displayName || data.name || 'Student',
+                  dept: deptShort,
+                };
+              }
+              
+              // Fallback to what was in the attendance record
+              const deptShort = DEPARTMENTS.find(d => d.name === data.dept || d.short === data.dept)?.short || data.dept || 'N/A';
               return {
                 uid,
-                count,
-                name: userData?.displayName || 'Unknown Student',
+                count: data.count,
+                name: data.name !== 'Anonymous Student' ? data.name : 'Student',
                 dept: deptShort,
               };
             } catch (err) {
               console.warn(`Could not fetch user details for ${uid}`, err);
+              const deptShort = DEPARTMENTS.find(d => d.name === data.dept || d.short === data.dept)?.short || data.dept || 'N/A';
               return {
                 uid,
-                count,
-                name: 'Anonymous Student',
-                dept: 'N/A',
+                count: data.count,
+                name: data.name !== 'Anonymous Student' ? data.name : 'Student',
+                dept: deptShort,
               };
             }
           })

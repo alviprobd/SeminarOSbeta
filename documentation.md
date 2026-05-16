@@ -1,134 +1,122 @@
-# Installation Guide: Seminar OS on cPanel Shared Hosting
+# Deployment & Production Setup Guide: Seminar OS
 
-This guide provides detailed instructions on how to deploy the **Seminar OS** application to a cPanel-based shared hosting environment.
-
-## Prerequisites
-
-Before you begin, ensure your cPanel hosting meets the following requirements:
-1.  **Node.js Support**: Your hosting provider must have the "Setup Node.js App" feature enabled in cPanel.
-2.  **Node.js Version**: Version 18.x or 20.x is recommended.
-3.  **Terminal Access (Optional but Recommended)**: Access to the "Terminal" feature in cPanel makes the process much faster.
-4.  **Firebase Project**: You should have your Firebase configuration ready (already present in `firebase-applet-config.json`).
+This guide provides a comprehensive, step-by-step walkthrough for setting up **Seminar OS** on a shared cPanel hosting environment. This ensures the frontend, backend (Firebase), and mailing system all work perfectly.
 
 ---
 
-## Method 1: Full-Stack Deployment (Recommended)
+## 1. Firebase Project Setup (Critical)
 
-This method ensures all features, including **Email Certificates** and **Reminders**, work correctly by running the Express backend.
+Since you are moving to a production environment, your application needs a **Service Account Key** to communicate with Firebase from your hosting server.
 
-### Step 1: Prepare the Build Locally
+1.  Go to the [Firebase Console](https://console.firebase.google.com/).
+2.  Select your project.
+3.  Click the **Gear icon (Project Settings)** in the sidebar.
+4.  Go to the **Service accounts** tab.
+5.  Click **Generate new private key** and then click **Generate key**.
+6.  A `.json` file will download. **Open this file in a text editor (like Notepad)**. You will need to copy the *entire content* later.
+7.  **Deploy Security Rules**:
+    *   In the sidebar, go to **Firestore Database** -> **Rules**.
+    *   Copy the content of the `firestore.rules` file from your project and paste it here. Click **Publish**.
+    *   Do the same for **Storage** -> **Rules** using your `storage.rules` file.
 
-Since shared hosting environments often have limited resources, it is best to build the frontend on your local machine first.
+---
 
-1.  Open your terminal in the project root.
+## 2. Gmail Mailing System Setup
+
+To send certificates via Gmail, you **must Not** use your regular password. You need an **App Password**.
+
+1.  Go to your [Google Account Settings](https://myaccount.google.com/).
+2.  Go to **Security**.
+3.  Ensure **2-Step Verification** is turned **On**.
+4.  Search for "App Passwords" in the search bar at the top or find it under 2-Step Verification.
+5.  Enter a name (e.g., "Seminar OS") and click **Create**.
+6.  Copy the **16-character code** generated. This is your "App Password".
+
+---
+
+## 3. Preparing the Application for Upload
+
+1.  Open your project in your local environment.
 2.  Run the build command:
     ```bash
     npm run build
     ```
-3.  This will create a `dist` folder containing your compiled frontend assets.
+3.  This command creates a folder named `dist` which contains:
+    *   `index.html` and assets (Frontend)
+    *   `server.js` (The backend server)
 
-### Step 2: Upload Files to cPanel
+---
 
+## 4. cPanel Hosting Setup
+
+### Step A: Upload Files
 1.  Log in to your cPanel.
-2.  Open **File Manager** and navigate to your domain's root directory (usually `public_html` or a specific folder for your subdomain).
-3.  Upload the following files and folders:
-    *   `dist/` (The entire folder)
-    *   `src/` (Optional, but some imports might reference it)
-    *   `server.ts`
-    *   `package.json`
-    *   `package-lock.json`
-    *   `firebase-applet-config.json`
-    *   `tsconfig.json`
-    *   `.env` (If you have one)
+2.  Open **File Manager**.
+3.  Create a new folder for your app (e.g., `seminar-os`) *outside* of `public_html` for better security, or inside it if required by your host.
+4.  Upload the following items to this folder:
+    *   The `dist` folder (upload the entire folder).
+    *   `package.json`.
+    *   `firebase-applet-config.json`.
 
-### Step 3: Create the Node.js Application
-
-1.  In cPanel, search for and open **Setup Node.js App**.
+### Step B: Create the Node.js Application
+1.  In cPanel, search for **Setup Node.js App**.
 2.  Click **Create Application**.
-3.  Configure the following settings:
-    *   **Node.js version**: Select 18.x or 20.x.
-    *   **Application mode**: Set to `Production`.
-    *   **Application root**: The folder where you uploaded the files (e.g., `seminar-os`).
-    *   **Application URL**: Select your domain and the desired path.
-    *   **Application startup file**: Set this to `server.ts` (Note: If your host doesn't support `.ts` directly, see the "Compiling Server" section below).
-4.  Click **Create**.
+3.  **Node.js version**: Choose 18.x or 20.x.
+4.  **Application mode**: Production.
+5.  **Application root**: The name of the folder you created (e.g., `seminar-os`).
+6.  **Application URL**: Select your domain and the path (leave blank for root).
+7.  **Application startup file**: Enter `dist/server.js`.
+8.  Click **Create**.
 
-### Step 4: Install Dependencies
-
-1.  Once the app is created, you will see a section for "Run npm install".
-2.  Click the **Run npm install** button.
-3.  Alternatively, if you have Terminal access:
-    ```bash
-    cd /path/to/your/app
-    npm install
-    ```
-
-### Step 5: Handling TypeScript on the Server
-
-Most cPanel Node.js selectors expect a `.js` file. To run the TypeScript server:
-
-**Option A: Using `tsx` (Easiest)**
-In your `package.json`, ensure you have a start script:
-```json
-"scripts": {
-  "start": "npx tsx server.ts"
-}
-```
-Then, in the cPanel Node.js App settings, set the **Application startup file** to a small loader file named `app.js` that you create:
-```javascript
-// app.js
-import('tsx/esm/api').then(() => {
-  import('./server.ts');
-});
-```
-
-**Option B: Compiling to JavaScript (Most Stable)**
-1.  Locally, run the server build command:
-    ```bash
-    npm run build:server
-    ```
-2.  This will create `dist/server.js`.
-3.  Upload `dist/server.js` to your server.
-4.  Set the **Application startup file** in cPanel to `dist/server.js`.
-
-### Step 6: Environment Variables
-
-If your app requires environment variables (like `GEMINI_API_KEY`):
-1.  In the **Setup Node.js App** interface, scroll down to **Environment variables**.
-2.  Add your keys and values.
-3.  Click **Save** and then **Restart** the application.
+### Step C: Install Dependencies
+1.  After creating, look for the **Run npm install** button in the Node.js App interface and click it.
+2.  Wait for it to finish.
 
 ---
 
-## Method 2: Static Hosting (Frontend Only)
+## 5. Environment Variables (The Final Step)
 
-If your hosting **does not** support Node.js, you can still host the frontend, but **API features (Emails/Certificates) will not work**.
+In the **Setup Node.js App** interface, scroll to **Environment variables** and add these:
 
-1.  Run `npm run build` locally.
-2.  Upload the **contents** of the `dist` folder directly to `public_html`.
-3.  Create a `.htaccess` file in `public_html` to handle React Router navigation:
-    ```apache
-    <IfModule mod_rewrite.c>
-      RewriteEngine On
-      RewriteBase /
-      RewriteRule ^index\.html$ - [L]
-      RewriteCond %{REQUEST_FILENAME} !-f
-      RewriteCond %{REQUEST_FILENAME} !-d
-      RewriteRule . /index.html [L]
-    </IfModule>
-    ```
+| Key | Value |
+| :--- | :--- |
+| `NODE_ENV` | `production` |
+| `FIREBASE_SERVICE_ACCOUNT` | *Paste the entire content of the JSON file you downloaded in Step 1 here.* |
+| `GEMINI_API_KEY` | *(Your Gemini API Key if using AI features)* |
 
----
+**Optional (For Custom SMTP):**
+If you prefer not to use Gmail and use your hosting's email (e.g., info@yourdomain.com):
+*   `SMTP_HOST`: e.g., `mail.yourdomain.com`
+*   `SMTP_PORT`: Usually `465`
+*   `SMTP_SECURE`: `true`
 
-## Troubleshooting
-
-*   **503 Service Unavailable**: This usually means the Node.js app crashed on startup. Check the "stderr" logs in the Node.js App interface.
-*   **Firebase Errors**: Ensure `firebase-applet-config.json` is in the application root and contains valid credentials.
-*   **Email Not Sending**: Ensure you are using a **Gmail App Password**, not your regular password. Some shared hosts block outgoing SMTP ports; you may need to ask your host to whitelist your Gmail connection.
-*   **Port Issues**: The application is configured to listen on port 3000. cPanel's Node.js selector handles the proxying automatically, so you don't need to change the port in `server.ts`.
+**Click "Save" and then "Restart" the application.**
 
 ---
 
-## Support
+## 6. Post-Deployment Configuration (Mailing System)
 
-For further assistance, please refer to the official documentation of your hosting provider regarding "cPanel Node.js Selector" or "Passenger Node.js".
+Once your application is running at your domain, follow these steps to activate the mailing system:
+
+1.  Open your website and log in as an **Admin**.
+2.  Go to the **Admin Dashboard**.
+3.  Click on the **Settings** tab.
+4.  Find the **Email Configuration** section.
+5.  Enter your **SMTP/Gmail Email** and the **16-character App Password** you created in Step 2.
+6.  Click **Save Settings**.
+7.  Click **Test SMTP Connection** to verify it's working. If you receive a test email, your system is fully operational.
+
+---
+
+## 7. How it All Works Together
+
+*   **Frontend**: Served from the `dist` folder.
+*   **Leaderboard**: The leaderboard is public. It allows anyone (even guest users) to see the top participants by checking attendance records where `attended` is true.
+*   **Database**: Connects to Firebase Cloud Firestore.
+*   **Verification**: The `/verify?code=XXX` link uses the backend server to automatically generate social media previews (SEO).
+*   **Mailing**: Uses the credentials you saved in the Dashboard (Settings panel) with the App Password.
+
+### Troubleshooting
+*   **Leaderboard Errors**: If the leaderboard fails to load, ensure your Firestore rules allow public reading of attended records (this was fixed in the latest update).
+*   **Page Not Found (404) on Refresh**: This app uses a "Single Page" design. The `server.js` handles routing, but if you have issues, ensure the Node.js app is properly pointed to `dist/server.js`.
+*   **Emails Not Sending**: Double-check your **App Password**. Some hosts block port 465; if so, try port 587 with `SMTP_SECURE=false`.

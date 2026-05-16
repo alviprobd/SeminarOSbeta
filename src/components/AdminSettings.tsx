@@ -150,23 +150,15 @@ export function AdminSettings() {
         }),
       });
 
-      const contentType = response.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
-        const data = await response.json();
-        if (response.ok) {
-          toast.success(data.message || 'Test email sent!');
-          setTestRecipient('');
-        } else {
-          toast.error(data.error || 'Failed to send test email');
-        }
+      const data = await response.json();
+      if (response.ok) {
+        toast.success(data.message || 'Test email sent!');
       } else {
-        const text = await response.text();
-        console.error("API non-json response:", text);
-        toast.error(`Server error: ${response.status}. Please check backend logs.`);
+        toast.error(data.error || 'Failed to send test email');
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error testing email:', error);
-      toast.error(`Error: ${error.message}`);
+      toast.error('Network error while testing email');
     } finally {
       setTesting(false);
     }
