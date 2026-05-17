@@ -309,30 +309,32 @@ async function startServer() {
 
       await transporter.sendMail(mailOptions);
       
-      await logEmail({
+      // Attempt server-side log
+      logEmail({
         to,
         subject,
         status: 'sent',
         type: 'certificate',
         sentBy: req.user.email
-      });
+      }).catch(e => console.warn("Background logEmail failed:", e.message));
 
-      res.json({ success: true, message: "Email sent successfully!" });
+      res.json({ success: true, message: "Email sent successfully!", to });
     } catch (error: any) {
       console.error("Error sending email:", error);
       
-      await logEmail({
+      logEmail({
         to: to || 'unknown',
         subject: subject || 'No Subject',
         status: 'failed',
         error: error.message,
         type: 'certificate',
         sentBy: req.user.email
-      });
+      }).catch(e => console.warn("Background logEmail failed:", e.message));
 
       res.status(500).json({ 
         error: "Failed to send email", 
-        details: error.message 
+        details: error.message,
+        to: to || 'unknown'
       });
     }
   });
@@ -409,36 +411,39 @@ async function startServer() {
 
         try {
           await transporter.sendMail(mailOptions);
-          await logEmail({
+          // Attempt server-side log, but don't fail if it doesn't work
+          logEmail({
             to: emailData.to,
             subject: emailData.subject,
             status: 'sent',
             type: 'bulk',
             sentBy: req.user.email
-          });
-          return { success: true };
+          }).catch(e => console.warn("Background logEmail failed:", e.message));
+
+          return { success: true, to: emailData.to };
         } catch (err: any) {
-          await logEmail({
+          logEmail({
             to: emailData.to,
             subject: emailData.subject,
             status: 'failed',
             error: err.message,
             type: 'bulk',
             sentBy: req.user.email
-          });
-          throw err;
+          }).catch(e => console.warn("Background logEmail failed:", e.message));
+
+          return { success: false, to: emailData.to, error: err.message };
         }
       }));
 
-      const successful = results.filter(r => r.status === 'fulfilled').length;
-      const failed = results.filter(r => r.status === 'rejected').length;
+      const successful = results.filter(r => r.status === 'fulfilled' && (r.value as any).success).length;
+      const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !(r.value as any).success)).length;
 
       if (emails.length > 0 && successful === 0) {
         return res.status(500).json({
           error: "All emails in this batch failed to send",
           successful,
           failed,
-          details: results.map(r => r.status === 'rejected' ? (r as PromiseRejectedResult).reason.message : 'success')
+          results: results.map(r => r.status === 'fulfilled' ? r.value : { success: false, error: (r as PromiseRejectedResult).reason.message })
         });
       }
 
@@ -447,7 +452,7 @@ async function startServer() {
         message: `Processed ${emails.length} emails. Success: ${successful}, Failed: ${failed}`,
         successful,
         failed,
-        results: results.map(r => r.status)
+        results: results.map(r => r.status === 'fulfilled' ? r.value : { success: false, error: (r as PromiseRejectedResult).reason.message })
       });
     } catch (error: any) {
       console.error(`Error in bulk sending:`, error);

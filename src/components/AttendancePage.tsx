@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { doc, getDoc, setDoc, query, collection, where, getDocs } from 'firebase/firestore';
-import { db, auth } from '../lib/firebase';
+import { db, auth, logEmailClientSide } from '../lib/firebase';
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
 import { 
@@ -140,7 +140,7 @@ export function AttendancePage() {
             .replace(/{site_name}/g, siteSettings.siteName || 'Seminar OS');
 
           const idToken = await auth.currentUser?.getIdToken();
-          fetch('/api/send-certificate', { // Reusing the same endpoint for sending general emails
+          const response = await fetch('/api/send-certificate', { // Reusing the same endpoint for sending general emails
             method: 'POST',
             headers: { 
               'Content-Type': 'application/json',
@@ -156,6 +156,27 @@ export function AttendancePage() {
               fileName: ''
             })
           });
+
+          if (response.ok) {
+            const result = await response.json();
+            await logEmailClientSide({
+              to: result.to || auth.currentUser.email || 'unknown',
+              subject,
+              status: 'sent',
+              type: 'certificate',
+              sentBy: 'System Automation (Attendance)'
+            });
+          } else {
+            const errorResult = await response.json();
+            await logEmailClientSide({
+              to: errorResult.to || auth.currentUser.email || 'unknown',
+              subject,
+              status: 'failed',
+              error: errorResult.error || 'Failed to send feedback email',
+              type: 'certificate',
+              sentBy: 'System Automation (Attendance)'
+            });
+          }
         } catch (emailErr) {
           console.error('Error sending feedback email:', emailErr);
         }

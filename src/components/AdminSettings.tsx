@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
-import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
+import { db, auth, handleFirestoreError, OperationType, logEmailClientSide } from '../lib/firebase';
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
 import { 
@@ -160,8 +160,23 @@ export function AdminSettings() {
 
       const data = await response.json();
       if (response.ok) {
+        await logEmailClientSide({
+          to: testRecipient,
+          subject: "Seminar OS - Test Email Connection",
+          status: 'sent',
+          type: 'test',
+          sentBy: auth.currentUser?.email || 'admin'
+        });
         toast.success(data.message || 'Test email sent!');
       } else {
+        await logEmailClientSide({
+          to: testRecipient,
+          subject: "Seminar OS - Test Email Connection",
+          status: 'failed',
+          error: data.error || 'Failed to send test email',
+          type: 'test',
+          sentBy: auth.currentUser?.email || 'admin'
+        });
         toast.error(data.error || 'Failed to send test email');
       }
     } catch (error) {

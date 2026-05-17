@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { collection, query, where, onSnapshot, addDoc, doc, updateDoc, deleteDoc, getDocs, writeBatch, getDoc, setDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { db, auth, handleFirestoreError, OperationType, storage } from '../lib/firebase';
+import { db, auth, handleFirestoreError, OperationType, storage, logEmailClientSide } from '../lib/firebase';
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
 import html2canvas from 'html2canvas';
@@ -389,6 +389,22 @@ export function AdminDashboard() {
             });
             
             if (response.ok) {
+              const batchResult = await response.json();
+              
+              // Client-side logging for each email in the batch
+              if (batchResult.results && Array.isArray(batchResult.results)) {
+                for (const result of batchResult.results) {
+                  await logEmailClientSide({
+                    to: result.to || 'unknown',
+                    subject: seminar.title + ' Reminder',
+                    status: result.success ? 'sent' : 'failed',
+                    error: result.error,
+                    type: 'bulk',
+                    sentBy: 'System Automation'
+                  });
+                }
+              }
+
               const batch = writeBatch(db);
               pendingReminders.forEach(r => {
                 batch.update(doc(db, 'registrations', r.id), { reminderSentAt: new Date().toISOString() });
@@ -459,6 +475,22 @@ export function AdminDashboard() {
             });
 
             if (response.ok) {
+              const batchResult = await response.json();
+              
+              // Client-side logging for each email in the batch
+              if (batchResult.results && Array.isArray(batchResult.results)) {
+                for (const result of batchResult.results) {
+                  await logEmailClientSide({
+                    to: result.to || 'unknown',
+                    subject: seminar.title + ' Follow-up',
+                    status: result.success ? 'sent' : 'failed',
+                    error: result.error,
+                    type: 'bulk',
+                    sentBy: 'System Automation'
+                  });
+                }
+              }
+
               const batch = writeBatch(db);
               pendingFollowUps.forEach(a => {
                 batch.update(doc(db, 'attendance', a.id), { followUpSentAt: new Date().toISOString() });
@@ -671,6 +703,22 @@ export function AdminDashboard() {
       });
 
       if (response.ok) {
+        const batchResult = await response.json();
+        
+        // Client-side logging
+        if (batchResult.results && Array.isArray(batchResult.results)) {
+          for (const result of batchResult.results) {
+            await logEmailClientSide({
+              to: result.to || 'unknown',
+              subject: `WhatsApp Group for ${seminar.title}`,
+              status: result.success ? 'sent' : 'failed',
+              error: result.error,
+              type: 'bulk',
+              sentBy: auth.currentUser?.email || 'admin'
+            });
+          }
+        }
+        
         await updateDoc(doc(db, 'seminars', seminar.id), {
           whatsappLinkSentAt: new Date().toISOString()
         });
@@ -878,6 +926,21 @@ export function AdminDashboard() {
           }
           
           const batchResult = await response.json();
+          
+          // Client-side logging for each email in the batch
+          if (batchResult.results && Array.isArray(batchResult.results)) {
+            for (const result of batchResult.results) {
+              await logEmailClientSide({
+                to: result.to || 'unknown',
+                subject: 'Certificate Delivery', // Subject is not returned but we know it's a certificate
+                status: result.success ? 'sent' : 'failed',
+                error: result.error,
+                type: 'bulk',
+                sentBy: auth.currentUser?.email || 'admin'
+              });
+            }
+          }
+
           if (batchResult.failed > 0) {
             console.warn(`Some emails in batch failed: ${batchResult.failed} failed out of ${emailBatchData.length}`);
             toast.warning(`Sent ${batchResult.successful} emails, but ${batchResult.failed} failed. Check logs for details.`);
@@ -1404,6 +1467,7 @@ export function AdminDashboard() {
                   { label: 'Download ZIP', icon: <Download className="w-4 h-4" />, onClick: downloadAllCertificates, color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/40' },
                   { label: 'Email Template', icon: <Settings className="w-4 h-4" />, onClick: () => setShowEmailModal(true), color: 'text-amber-600 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40' },
                   { label: 'Edit', icon: <Edit3 className="w-4 h-4" />, onClick: () => { setEditingSeminar(selectedSeminar); setShowEditModal(true); }, color: 'text-slate-600 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700' },
+                  { label: 'Delete', icon: <Trash2 className="w-4 h-4" />, onClick: () => setShowDeleteConfirm(selectedSeminar.id), color: 'text-red-600 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40' },
                   { label: 'Share', icon: <Share2 className="w-4 h-4" />, onClick: () => { setShareSeminar(selectedSeminar); setShowShareModal(true); }, color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40' },
                   ...(selectedSeminar.whatsappEnabled && selectedSeminar.whatsappLink ? [{ 
                     label: 'Send WhatsApp Link', 
@@ -2462,6 +2526,43 @@ export function AdminDashboard() {
                 <p className="text-xs text-amber-700 leading-relaxed font-medium">
                   Share the <strong>Registration</strong> link before the seminar starts, and the <strong>Attendance</strong> link during the session.
                 </p>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Seminar Deletion Confirm Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden"
+          >
+            <div className="p-8 text-center">
+              <div className="w-20 h-20 bg-red-50 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                <Trash2 className="w-10 h-10 text-red-500" />
+              </div>
+              <h2 className="text-2xl font-black text-slate-900 mb-4">Delete Seminar?</h2>
+              <p className="text-slate-500 font-medium leading-relaxed mb-8">
+                Are you sure you want to delete <strong className="text-slate-900">{seminars.find(s => s.id === showDeleteConfirm)?.title}</strong>? 
+                This will permanently remove the seminar and its banner image. Participants records (registrations/attendance) will remain but will be orphaned.
+              </p>
+              
+              <div className="flex gap-4">
+                <button
+                  onClick={() => setShowDeleteConfirm(null)}
+                  className="flex-1 py-4 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition-all font-sans"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => deleteSeminar(showDeleteConfirm)}
+                  className="flex-1 py-4 bg-red-600 text-white font-bold rounded-2xl hover:bg-red-700 transition-all shadow-lg shadow-red-100 font-sans"
+                >
+                  Delete Permanently
+                </button>
               </div>
             </div>
           </motion.div>

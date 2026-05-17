@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { getFirestore, doc, getDocFromServer, addDoc, collection } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 const firebaseConfig = {
   projectId: "gen-lang-client-0758178203",
@@ -68,6 +68,25 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
+
+export const logEmailClientSide = async (emailData: {
+  to: string;
+  subject: string;
+  status: 'sent' | 'failed';
+  error?: string;
+  type: 'certificate' | 'test' | 'bulk';
+  sentBy: string;
+}) => {
+  try {
+    await addDoc(collection(db, 'emailLogs'), {
+      ...emailData,
+      status: emailData.status || 'sent',
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('Failed to log email to Firestore from client:', error);
+  }
+};
 
 async function testConnection() {
   try {
