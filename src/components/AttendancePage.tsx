@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { doc, getDoc, setDoc, query, collection, where, getDocs } from 'firebase/firestore';
-import { db, auth, logEmailClientSide, getApiUrl } from '../lib/firebase';
+import { db, auth, logEmailClientSide } from '../lib/firebase';
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
 import { 
@@ -140,7 +140,7 @@ export function AttendancePage() {
             .replace(/{site_name}/g, siteSettings.siteName || 'Seminar OS');
 
           const idToken = await auth.currentUser?.getIdToken();
-          const response = await fetch(getApiUrl('/api/send-certificate', siteSettings?.apiUrl), { // Reusing the same endpoint for sending general emails
+          const response = await fetch('/api/send-certificate', { // Reusing the same endpoint for sending general emails
             method: 'POST',
             headers: { 
               'Content-Type': 'application/json',

@@ -6,7 +6,6 @@ import nodemailer from "nodemailer";
 import * as admin from "firebase-admin";
 import { initializeApp, getApps } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
-import cors from "cors";
 import firebaseConfig from "./firebase-applet-config.json";
 
 import { getFirestore } from "firebase-admin/firestore";
@@ -73,8 +72,7 @@ async function startServer() {
     const app = express();
     const PORT = 3000;
 
-    app.use(cors());
-    app.use(express.json({ limit: '100mb' }));
+  app.use(express.json({ limit: '100mb' }));
 
   // Middleware to verify Firebase ID Token
   const authenticate = async (req: any, res: any, next: any) => {
