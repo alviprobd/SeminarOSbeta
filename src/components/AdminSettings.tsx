@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
-import { db, auth, handleFirestoreError, OperationType, logEmailClientSide } from '../lib/firebase';
+import { db, auth, handleFirestoreError, OperationType, logEmailClientSide, getApiUrl } from '../lib/firebase';
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
 import { 
@@ -142,7 +142,7 @@ export function AdminSettings() {
     setTesting(true);
     try {
       const idToken = await auth.currentUser?.getIdToken();
-      const response = await fetch('/api/send-test-email', {
+      const response = await fetch(getApiUrl('/api/send-test-email', settings.siteUrl), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

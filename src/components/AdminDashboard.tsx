@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { collection, query, where, onSnapshot, addDoc, doc, updateDoc, deleteDoc, getDocs, writeBatch, getDoc, setDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { db, auth, handleFirestoreError, OperationType, storage, logEmailClientSide } from '../lib/firebase';
+import { db, auth, handleFirestoreError, OperationType, storage, logEmailClientSide, getApiUrl } from '../lib/firebase';
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
 import html2canvas from 'html2canvas';
@@ -372,7 +372,7 @@ export function AdminDashboard() {
             });
             
             const idToken = await auth.currentUser?.getIdToken();
-            const response = await fetch('/api/send-certificates-bulk', {
+            const response = await fetch(getApiUrl('/api/send-certificates-bulk', siteSettings?.siteUrl), {
               method: 'POST',
               headers: { 
                 'Content-Type': 'application/json',
@@ -458,7 +458,7 @@ export function AdminDashboard() {
             });
 
             const idToken = await auth.currentUser?.getIdToken();
-            const response = await fetch('/api/send-certificates-bulk', {
+            const response = await fetch(getApiUrl('/api/send-certificates-bulk', siteSettings?.siteUrl), {
               method: 'POST',
               headers: { 
                 'Content-Type': 'application/json',
@@ -686,7 +686,7 @@ export function AdminDashboard() {
       });
 
       const idToken = await auth.currentUser?.getIdToken();
-      const response = await fetch('/api/send-certificates-bulk', {
+      const response = await fetch(getApiUrl('/api/send-certificates-bulk', siteSettings?.siteUrl), {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -904,7 +904,7 @@ export function AdminDashboard() {
         if (emailBatchData.length > 0) {
           // Call bulk backend API
           const idToken = await auth.currentUser?.getIdToken();
-          const response = await fetch('/api/send-certificates-bulk', {
+          const response = await fetch(getApiUrl('/api/send-certificates-bulk', siteSettings?.siteUrl), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

@@ -88,6 +88,15 @@ export const logEmailClientSide = async (emailData: {
   }
 };
 
+export const getApiUrl = (endpoint: string, siteUrl?: string) => {
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  if (!siteUrl || !siteUrl.startsWith('http')) {
+    return cleanEndpoint;
+  }
+  const base = siteUrl.endsWith('/') ? siteUrl.slice(0, -1) : siteUrl;
+  return `${base}${cleanEndpoint}`;
+};
+
 async function testConnection() {
   try {
     await getDocFromServer(doc(db, 'test', 'connection'));
