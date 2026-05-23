@@ -5,9 +5,29 @@ import nodemailer from "nodemailer";
 import * as admin from "firebase-admin";
 import { initializeApp, getApps } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
-import firebaseConfig from "./firebase-applet-config.json";
-
 import { getFirestore } from "firebase-admin/firestore";
+
+// Safe JSON loading for firebase-applet-config.json
+let firebaseConfig: any = {};
+try {
+  const configPath = path.join(process.cwd(), "firebase-applet-config.json");
+  if (fs.existsSync(configPath)) {
+    firebaseConfig = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+  } else {
+    // Try relative paths
+    const relativePath = path.join(__dirname, "firebase-applet-config.json");
+    if (fs.existsSync(relativePath)) {
+      firebaseConfig = JSON.parse(fs.readFileSync(relativePath, "utf-8"));
+    } else {
+      const parentRelativePath = path.join(__dirname, "../firebase-applet-config.json");
+      if (fs.existsSync(parentRelativePath)) {
+        firebaseConfig = JSON.parse(fs.readFileSync(parentRelativePath, "utf-8"));
+      }
+    }
+  }
+} catch (configError) {
+  console.error("Warning: Failed to load firebase-applet-config.json safely:", configError);
+}
 
 declare global {
   namespace Express {
@@ -19,7 +39,7 @@ declare global {
 
 try {
   // Initialize Firebase Admin
-  if (!getApps().length) {
+  if (!getApps().length && firebaseConfig.projectId) {
     const serviceAccountVar = process.env.FIREBASE_SERVICE_ACCOUNT;
     
     if (serviceAccountVar) {
@@ -51,16 +71,20 @@ try {
 
 let firestore: any;
 try {
-  const app = getApps()[0];
-  const dbId = firebaseConfig.firestoreDatabaseId;
-  console.log(`Initializing Firestore with Database ID: ${dbId || "(default)"} on Project: ${firebaseConfig.projectId}`);
-  
-  firestore = dbId 
-    ? getFirestore(app, dbId)
-    : getFirestore(app);
+  const apps = getApps();
+  if (apps.length > 0 && firebaseConfig.projectId) {
+    const app = apps[0];
+    const dbId = firebaseConfig.firestoreDatabaseId;
+    console.log(`Initializing Firestore with Database ID: ${dbId || "(default)"} on Project: ${firebaseConfig.projectId}`);
     
-  // Simple check to see if we can access the project
-  console.log(`Firestore instance initialized for project: ${firestore.projectId}`);
+    firestore = dbId 
+      ? getFirestore(app, dbId)
+      : getFirestore(app);
+      
+    console.log(`Firestore instance initialized for project: ${firestore.projectId}`);
+  } else {
+    console.warn("Warning: No Firebase App initialized, setting firestore to undefined.");
+  }
 } catch (error) {
   console.error("Failed to initialize Firestore:", error);
 }
@@ -132,6 +156,9 @@ app.use(express.json({ limit: '100mb' }));
       pool: true,
       maxConnections: 5,
       maxMessages: 100,
+      connectionTimeout: 5000, // 5 seconds connection timeout
+      greetingTimeout: 5000,   // 5 seconds greeting timeout
+      socketTimeout: 5000,     // 5 seconds socket timeout
       auth: {
         user: email,
         pass: pass,
@@ -461,32 +488,55 @@ app.use(express.json({ limit: '100mb' }));
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', async (req, res) => {
+      // If any API route falls through, return a clean 404 JSON instead of reading index.html
+      if (req.path.startsWith('/api/')) {
+        return res.status(404).json({ error: `API endpoint '${req.path}' not found` });
+      }
+
       const indexPath = path.join(distPath, 'index.html');
       const code = req.query.code as string;
 
+      if (!fs.existsSync(indexPath)) {
+        // Safe fallback in case dist/index.html is not bundled with the lambda in Vercel
+        return res.status(200).send(`
+          <!DOCTYPE html>
+          <html>
+            <head><title>CDC OS</title></head>
+            <body style="font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background-color: #f3f4f6;">
+              <div style="text-align: center; padding: 2rem; background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                <h1 style="color: #1f2937; margin: 0 0 1rem 0;">CDC OS</h1>
+                <p style="color: #4b5563; margin: 0;">Application is running! (Served directly via serverless template fallback)</p>
+              </div>
+            </body>
+          </html>
+        `);
+      }
+
       if (req.path === '/verify' && code) {
         try {
-          const snapshot = await firestore.collection('certificates').where('verificationCode', '==', code.toUpperCase()).limit(1).get();
-          if (!snapshot.empty) {
-            const cert = snapshot.docs[0].data();
-            let html = fs.readFileSync(indexPath, 'utf-8');
-            
-            const title = `Verified Certificate: ${cert.seminarTitle}`;
-            const description = `${cert.studentName} has successfully completed ${cert.seminarTitle}. Verification Code: ${cert.verificationCode}`;
-            
-            const meta = `
-              <title>${title}</title>
-              <meta name="description" content="${description}">
-              <meta property="og:title" content="${title}">
-              <meta property="og:description" content="${description}">
-              <meta property="og:type" content="website">
-              <meta property="og:url" content="${req.protocol}://${req.get('host')}${req.originalUrl}">
-              <meta name="twitter:card" content="summary">
-              <meta name="twitter:title" content="${title}">
-              <meta name="twitter:description" content="${description}">
-            `;
-            html = html.replace('<title>My Google AI Studio App</title>', meta);
-            return res.send(html);
+          if (firestore) {
+            const snapshot = await firestore.collection('certificates').where('verificationCode', '==', code.toUpperCase()).limit(1).get();
+            if (!snapshot.empty) {
+              const cert = snapshot.docs[0].data();
+              let html = fs.readFileSync(indexPath, 'utf-8');
+              
+              const title = `Verified Certificate: ${cert.seminarTitle}`;
+              const description = `${cert.studentName} has successfully completed ${cert.seminarTitle}. Verification Code: ${cert.verificationCode}`;
+              
+              const meta = `
+                <title>${title}</title>
+                <meta name="description" content="${description}">
+                <meta property="og:title" content="${title}">
+                <meta property="og:description" content="${description}">
+                <meta property="og:type" content="website">
+                <meta property="og:url" content="${req.protocol}://${req.get('host')}${req.originalUrl}">
+                <meta name="twitter:card" content="summary">
+                <meta name="twitter:title" content="${title}">
+                <meta name="twitter:description" content="${description}">
+              `;
+              html = html.replace('<title>My Google AI Studio App</title>', meta);
+              return res.send(html);
+            }
           }
         } catch (e) {
           console.error('Metadata injection failed:', e);
