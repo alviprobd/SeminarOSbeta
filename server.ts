@@ -1,5 +1,4 @@
 import express, { Request } from "express";
-import { createServer as createViteServer } from "vite";
 import path from "path";
 import fs from "fs";
 import nodemailer from "nodemailer";
@@ -501,7 +500,8 @@ app.use(express.json({ limit: '100mb' }));
     console.log(`Starting server in ${process.env.NODE_ENV || 'development'} mode...`);
     try {
       if (process.env.NODE_ENV !== "production") {
-        const vite = await createViteServer({
+        const { createServer } = await import("vite");
+        const vite = await createServer({
           server: { middlewareMode: true },
           appType: "spa",
         });
