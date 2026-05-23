@@ -9,7 +9,7 @@ import {
   Mail, Key, Send, AlertCircle, Cpu, RefreshCw,
   CheckCircle2, Github, ExternalLink, ShieldCheck,
   Users, Plus, Hash, List, Filter, XCircle, CheckCircle,
-  FileSearch, Clock, ChevronRight, User
+  FileSearch, Clock, ChevronRight, User, Sparkles
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { APP_VERSION } from '../constants';
@@ -23,9 +23,7 @@ export function AdminSettings() {
   const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'latest' | 'available'>('idle');
   const [repoStatus, setRepoStatus] = useState<'connected' | 'checking' | 'error'>('connected');
   const [testRecipient, setTestRecipient] = useState('');
-  const [activeTab, setActiveTab] = useState<'general' | 'email' | 'logs' | 'updates' | 'referral'>('general');
-  const [emailLogs, setEmailLogs] = useState<any[]>([]);
-  const [loadingLogs, setLoadingLogs] = useState(false);
+  const [activeTab, setActiveTab] = useState<'general' | 'email' | 'updates' | 'referral'>('general');
   const [settings, setSettings] = useState({
     siteUrl: window.location.origin,
     siteLogo: '',
@@ -52,7 +50,14 @@ export function AdminSettings() {
     // Follow-up Settings
     enableFollowUp: false,
     followUpEmailSubject: 'Thank you for attending {seminar_title}',
-    followUpEmailBody: 'Hi {student_name},\n\nThank you for joining us today for "{seminar_title}". We hope you found it valuable.\n\nYou can download your certificate here: {certificate_link}\n\nBest regards,\nThe {site_name} Team'
+    followUpEmailBody: 'Hi {student_name},\n\nThank you for joining us today for "{seminar_title}". We hope you found it valuable.\n\nYou can download your certificate here: {certificate_link}\n\nBest regards,\nThe {site_name} Team',
+    // Homepage customizable content
+    heroBadge: 'Streamline Your Academic Events',
+    heroTitle: 'Elevate Your Seminar',
+    heroHighlight: 'Experience',
+    heroDescription: 'The premier platform for academic excellence. Organize, track, and certify seminars with automated attendance and powerful analytics.',
+    heroPrimaryBtnText: 'Get Started Now',
+    heroSecondaryBtnText: 'Verify Certificate'
   });
   const [newOption, setNewOption] = useState('');
   const [newCode, setNewCode] = useState('');
@@ -82,21 +87,7 @@ export function AdminSettings() {
     fetchSettings();
   }, []);
 
-  useEffect(() => {
-    if (activeTab === 'logs') {
-      setLoadingLogs(true);
-      const q = query(collection(db, 'emailLogs'), orderBy('timestamp', 'desc'), limit(50));
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        setEmailLogs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        setLoadingLogs(false);
-      }, (error) => {
-        console.error("Error fetching email logs:", error);
-        handleFirestoreError(error, OperationType.LIST, 'emailLogs');
-        setLoadingLogs(false);
-      });
-      return () => unsubscribe();
-    }
-  }, [activeTab]);
+
 
   const handleSave = async () => {
     setSaving(true);
@@ -107,7 +98,13 @@ export function AdminSettings() {
         siteLogo: settings.siteLogo,
         logoHeight: settings.logoHeight,
         siteUrl: settings.siteUrl,
-        enableFeedback: settings.enableFeedback
+        enableFeedback: settings.enableFeedback,
+        heroBadge: settings.heroBadge || 'Streamline Your Academic Events',
+        heroTitle: settings.heroTitle || 'Elevate Your Seminar',
+        heroHighlight: settings.heroHighlight !== undefined ? settings.heroHighlight : 'Experience',
+        heroDescription: settings.heroDescription || 'The premier platform for academic excellence. Organize, track, and certify seminars with automated attendance and powerful analytics.',
+        heroPrimaryBtnText: settings.heroPrimaryBtnText || 'Get Started Now',
+        heroSecondaryBtnText: settings.heroSecondaryBtnText || 'Verify Certificate'
       };
       
       await setDoc(doc(db, 'siteSettings', 'branding'), branding);
@@ -260,18 +257,7 @@ export function AdminSettings() {
           <Mail className={cn("w-4 h-4", activeTab === 'email' ? "text-white" : "text-slate-400")} />
           Email
         </button>
-        <button
-          onClick={() => setActiveTab('logs')}
-          className={cn(
-            "flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap",
-            activeTab === 'logs' 
-              ? "bg-brand-teal-light text-white shadow-md" 
-              : "text-slate-500 hover:text-slate-700 hover:bg-white/50"
-          )}
-        >
-          <List className={cn("w-4 h-4", activeTab === 'logs' ? "text-white" : "text-slate-400")} />
-          Email Logs
-        </button>
+
         <button
           onClick={() => setActiveTab('updates')}
           className={cn(
@@ -417,6 +403,108 @@ export function AdminSettings() {
                         Recommended: Square or horizontal PNG/SVG with transparent background. Max 1MB.
                       </p>
                     </div>
+                  </div>
+                </div>
+              </div>
+            </motion.section>
+
+            {/* Homepage Content Customization */}
+            <motion.section 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="bg-white p-5 sm:p-8 rounded-3xl border border-slate-200 shadow-sm"
+            >
+              <div className="flex items-center gap-3 mb-8">
+                <Sparkles className="w-5 h-5 text-brand-teal-light" />
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900">Homepage Hero Contents</h2>
+                  <p className="text-xs text-slate-500 font-medium">Customize the text blocks, call-to-actions, and highlights on your front-end homepage.</p>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div className="grid md:grid-cols-2 gap-6">
+                  {/* Badge & Highlight word */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                      Hero Badge Text
+                    </label>
+                    <input 
+                      type="text"
+                      value={settings.heroBadge || ''}
+                      onChange={(e) => setSettings({ ...settings, heroBadge: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-teal-light outline-none transition-all font-medium"
+                      placeholder="e.g. Streamline Your Academic Events"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                      Dynamic Gradient Word
+                    </label>
+                    <input 
+                      type="text"
+                      value={settings.heroHighlight || ''}
+                      onChange={(e) => setSettings({ ...settings, heroHighlight: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-teal-light outline-none transition-all font-medium"
+                      placeholder="e.g. Experience"
+                    />
+                    <p className="text-[10px] text-slate-400 font-medium">
+                      This word is rendered with a striking gradient color on the homepage.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                    Hero Main Title
+                  </label>
+                  <input 
+                    type="text"
+                    value={settings.heroTitle || ''}
+                    onChange={(e) => setSettings({ ...settings, heroTitle: e.target.value })}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-teal-light outline-none transition-all font-medium"
+                    placeholder="e.g. Elevate Your Seminar"
+                  />
+                  <p className="text-[10px] text-slate-400 font-medium font-mono text-right">
+                    Renders right before the Dynamic Gradient Word.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-slate-700">Hero Description</label>
+                  <textarea 
+                    value={settings.heroDescription || ''}
+                    onChange={(e) => setSettings({ ...settings, heroDescription: e.target.value })}
+                    rows={4}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-teal-light outline-none transition-all font-medium resize-none"
+                    placeholder="Brief introductory description for homepage visitors..."
+                  />
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-6">
+                  {/* Button labels */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-slate-700">Primary Button Label</label>
+                    <input 
+                      type="text"
+                      value={settings.heroPrimaryBtnText || ''}
+                      onChange={(e) => setSettings({ ...settings, heroPrimaryBtnText: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-teal-light outline-none transition-all font-medium"
+                      placeholder="e.g. Get Started Now"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-slate-700">Secondary Button Label</label>
+                    <input 
+                      type="text"
+                      value={settings.heroSecondaryBtnText || ''}
+                      onChange={(e) => setSettings({ ...settings, heroSecondaryBtnText: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-teal-light outline-none transition-all font-medium"
+                      placeholder="e.g. Verify Certificate"
+                    />
                   </div>
                 </div>
               </div>
@@ -747,90 +835,7 @@ export function AdminSettings() {
           </>
         )}
 
-        {activeTab === 'logs' && (
-          <motion.section 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white p-5 sm:p-8 rounded-3xl border border-slate-200 shadow-sm"
-          >
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-3">
-                <List className="w-5 h-5 text-brand-teal-light" />
-                <h2 className="text-xl font-bold text-slate-900">Email Logs</h2>
-              </div>
-              <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                Showing Last 50 Events
-              </div>
-            </div>
 
-            {loadingLogs ? (
-              <div className="flex flex-col items-center justify-center py-20 gap-4 text-slate-400">
-                <Loader2 className="w-8 h-8 animate-spin text-brand-teal-light" />
-                <p className="text-xs font-black uppercase tracking-widest">Fetching Logs...</p>
-              </div>
-            ) : emailLogs.length === 0 ? (
-              <div className="text-center py-20 border-2 border-dashed border-slate-100 rounded-3xl">
-                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Mail className="w-8 h-8 text-slate-200" />
-                </div>
-                <h3 className="text-lg font-bold text-slate-900 mb-1">No Logs Found</h3>
-                <p className="text-sm text-slate-500 font-medium">Email activity will appear here once the server starts sending emails.</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {emailLogs.map((log) => (
-                  <div 
-                    key={log.id} 
-                    className="p-4 bg-slate-50/50 border border-slate-100 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:border-slate-200 group"
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className={cn(
-                        "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
-                        log.status === 'sent' 
-                          ? "bg-emerald-50 text-emerald-500 border border-emerald-100" 
-                          : "bg-red-50 text-red-500 border border-red-100"
-                      )}>
-                        {log.status === 'sent' ? <CheckCircle className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className="text-sm font-bold text-slate-900 truncate max-w-[200px]">{log.to}</h4>
-                          <span className={cn(
-                            "px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest",
-                            log.type === 'certificate' ? "bg-blue-50 text-blue-600 border border-blue-100" :
-                            log.type === 'bulk' ? "bg-indigo-50 text-indigo-600 border border-indigo-100" :
-                            "bg-slate-100 text-slate-500 border border-slate-200"
-                          )}>
-                            {log.type}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-500 font-medium truncate max-w-[250px]">{log.subject}</p>
-                        {log.status === 'failed' && log.error && (
-                          <div className="mt-2 text-[10px] text-red-500 font-bold bg-red-50/50 p-2 rounded-lg border border-red-100 flex gap-2">
-                             <AlertCircle className="w-3 h-3 shrink-0 mt-0.5" />
-                             {log.error}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex flex-row sm:flex-col items-center sm:items-end gap-2 shrink-0">
-                      <div className="flex items-center gap-1.5 text-slate-400">
-                        <Clock className="w-3 h-3" />
-                        <span className="text-[10px] font-bold">
-                          {format(new Date(log.timestamp), 'MMM d, HH:mm:ss')}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-slate-400">
-                        <User className="w-2.5 h-2.5" />
-                        by {log.sentBy?.split('@')[0] || 'System'}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </motion.section>
-        )}
 
         {activeTab === 'updates' && (
           <motion.section 
@@ -1083,7 +1088,7 @@ export function AdminSettings() {
           </div>
         )}
 
-        {activeTab !== 'updates' && activeTab !== 'logs' && (
+        {activeTab !== 'updates' && (
           <div className="flex justify-end pt-4">
             <button 
               onClick={handleSave}

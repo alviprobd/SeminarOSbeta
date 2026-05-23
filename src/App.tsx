@@ -177,7 +177,7 @@ function AppContent({ user, userRole, loading, siteSettings, setUser, setUserRol
             <Routes>
               <Route path="/" element={
                 <>
-                  <Hero />
+                  <Hero siteSettings={siteSettings} />
                   <Leaderboard />
                 </>
               } />

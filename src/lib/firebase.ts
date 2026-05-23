@@ -77,15 +77,7 @@ export const logEmailClientSide = async (emailData: {
   type: 'certificate' | 'test' | 'bulk';
   sentBy: string;
 }) => {
-  try {
-    await addDoc(collection(db, 'emailLogs'), {
-      ...emailData,
-      status: emailData.status || 'sent',
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error('Failed to log email to Firestore from client:', error);
-  }
+  // Disabled at user's request: Remove the email log feature.
 };
 
 async function testConnection() {

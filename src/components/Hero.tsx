@@ -2,7 +2,14 @@ import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { CheckCircle, Users, Award, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
 
-export function Hero() {
+export function Hero({ siteSettings }: { siteSettings?: any }) {
+  const heroBadge = siteSettings?.heroBadge || 'Streamline Your Academic Events';
+  const heroTitle = siteSettings?.heroTitle || 'Elevate Your Seminar';
+  const heroHighlight = siteSettings?.hasOwnProperty('heroHighlight') ? siteSettings.heroHighlight : 'Experience';
+  const heroDescription = siteSettings?.heroDescription || 'The premier platform for academic excellence. Organize, track, and certify seminars with automated attendance and powerful analytics.';
+  const heroPrimaryBtnText = siteSettings?.heroPrimaryBtnText || 'Get Started Now';
+  const heroSecondaryBtnText = siteSettings?.heroSecondaryBtnText || 'Verify Certificate';
+
   return (
     <div className="relative overflow-hidden">
       {/* Background Decor */}
@@ -20,20 +27,25 @@ export function Hero() {
           >
             <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-teal-50 dark:bg-teal-900/30 text-brand-teal-light dark:text-brand-teal-light text-sm font-bold tracking-wide uppercase mb-8">
               <Zap className="w-4 h-4 fill-brand-teal-light" />
-              Streamline Your Academic Events
+              {heroBadge}
             </span>
             <h1 className="text-4xl sm:text-5xl md:text-7xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-6 leading-[1.1]">
-              Elevate Your Seminar <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-teal-light to-brand-blue-light">Experience</span>
+              {heroTitle}{' '}
+              {heroHighlight && (
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-teal-light to-brand-blue-light">
+                  {heroHighlight}
+                </span>
+              )}
             </h1>
             <p className="text-xl text-slate-600 dark:text-slate-400 mb-10 leading-relaxed">
-              The premier platform for academic excellence. Organize, track, and certify seminars with automated attendance and powerful analytics.
+              {heroDescription}
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link 
                 to="/auth" 
                 className="w-full sm:w-auto px-8 py-4 bg-brand-teal-light text-white font-bold rounded-2xl hover:bg-brand-teal-dark transition-all shadow-xl shadow-teal-200 dark:shadow-teal-900/20 flex items-center justify-center gap-2 group"
               >
-                Get Started Now
+                {heroPrimaryBtnText}
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Link>
               <Link 
@@ -41,7 +53,7 @@ export function Hero() {
                 className="w-full sm:w-auto px-8 py-4 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold rounded-2xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
               >
                 <ShieldCheck className="w-5 h-5 text-brand-teal-light" />
-                Verify Certificate
+                {heroSecondaryBtnText}
               </Link>
             </div>
           </motion.div>
