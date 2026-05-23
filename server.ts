@@ -66,13 +66,8 @@ try {
   console.error("Failed to initialize Firestore:", error);
 }
 
-async function startServer() {
-  console.log(`Starting server in ${process.env.NODE_ENV || 'development'} mode...`);
-  try {
-    const app = express();
-    const PORT = 3000;
-
-  app.use(express.json({ limit: '100mb' }));
+export const app = express();
+app.use(express.json({ limit: '100mb' }));
 
   // Middleware to verify Firebase ID Token
   const authenticate = async (req: any, res: any, next: any) => {
@@ -463,14 +458,7 @@ async function startServer() {
     }
   });
 
-  // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
+  if (process.env.NODE_ENV === "production" || process.env.VERCEL) {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', async (req, res) => {
@@ -509,12 +497,26 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
-  } catch (error) {
-    console.error("Failed to start server:", error);
-  }
-}
+  async function startServer() {
+    console.log(`Starting server in ${process.env.NODE_ENV || 'development'} mode...`);
+    try {
+      if (process.env.NODE_ENV !== "production") {
+        const vite = await createViteServer({
+          server: { middlewareMode: true },
+          appType: "spa",
+        });
+        app.use(vite.middlewares);
+      }
 
-startServer();
+      const PORT = 3000;
+      app.listen(PORT, "0.0.0.0", () => {
+        console.log(`Server running on http://localhost:${PORT}`);
+      });
+    } catch (error) {
+      console.error("Failed to start server:", error);
+    }
+  }
+
+  if (!process.env.VERCEL) {
+    startServer();
+  }
