@@ -66,13 +66,8 @@ try {
   console.error("Failed to initialize Firestore:", error);
 }
 
-async function startServer() {
-  console.log(`Starting server in ${process.env.NODE_ENV || 'development'} mode...`);
-  try {
-    const app = express();
-    const PORT = 3000;
-
-  app.use(express.json({ limit: '100mb' }));
+const app = express();
+app.use(express.json({ limit: '100mb' }));
 
   // Middleware to verify Firebase ID Token
   const authenticate = async (req: any, res: any, next: any) => {
@@ -463,7 +458,60 @@ async function startServer() {
     }
   });
 
-  // Vite middleware for development
+  app.get('/verify', async (req, res, next) => {
+    const code = req.query.code as string;
+    if (!code) {
+      return next();
+    }
+
+    try {
+      const distPath = path.join(process.cwd(), 'dist');
+      const indexPath = path.join(distPath, 'index.html');
+      
+      if (!fs.existsSync(indexPath)) {
+        return next();
+      }
+
+      const snapshot = await firestore.collection('certificates').where('verificationCode', '==', code.toUpperCase()).limit(1).get();
+      if (!snapshot.empty) {
+        const cert = snapshot.docs[0].data();
+        let html = fs.readFileSync(indexPath, 'utf-8');
+        
+        const title = `Verified Certificate: ${cert.studentName} - ${cert.seminarTitle}`;
+        const description = `${cert.studentName} has successfully completed ${cert.seminarTitle}. Verification Code: ${cert.verificationCode}`;
+        
+        const meta = `
+          <title>${title}</title>
+          <meta name="description" content="${description}">
+          <meta property="og:title" content="${title}">
+          <meta property="og:description" content="${description}">
+          <meta property="og:type" content="website">
+          <meta property="og:url" content="${req.protocol}://${req.get('host')}${req.originalUrl}">
+          <meta name="twitter:card" content="summary">
+          <meta name="twitter:title" content="${title}">
+          <meta name="twitter:description" content="${description}">
+        `;
+        html = html.replace('<title>My Google AI Studio App</title>', meta);
+        return res.send(html);
+      }
+    } catch (e) {
+      console.error('Metadata injection failed:', e);
+    }
+    next();
+  });
+
+  app.get('/verify', (req, res) => {
+    const distPath = path.join(process.cwd(), 'dist');
+    const indexPath = path.join(distPath, 'index.html');
+    if (fs.existsSync(indexPath)) {
+      return res.sendFile(indexPath);
+    }
+    res.status(404).send('Not Found');
+  });
+
+async function startListening() {
+  const PORT = 3000;
+  
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -475,36 +523,6 @@ async function startServer() {
     app.use(express.static(distPath));
     app.get('*', async (req, res) => {
       const indexPath = path.join(distPath, 'index.html');
-      const code = req.query.code as string;
-
-      if (req.path === '/verify' && code) {
-        try {
-          const snapshot = await firestore.collection('certificates').where('verificationCode', '==', code.toUpperCase()).limit(1).get();
-          if (!snapshot.empty) {
-            const cert = snapshot.docs[0].data();
-            let html = fs.readFileSync(indexPath, 'utf-8');
-            
-            const title = `Verified Certificate: ${cert.seminarTitle}`;
-            const description = `${cert.studentName} has successfully completed ${cert.seminarTitle}. Verification Code: ${cert.verificationCode}`;
-            
-            const meta = `
-              <title>${title}</title>
-              <meta name="description" content="${description}">
-              <meta property="og:title" content="${title}">
-              <meta property="og:description" content="${description}">
-              <meta property="og:type" content="website">
-              <meta property="og:url" content="${req.protocol}://${req.get('host')}${req.originalUrl}">
-              <meta name="twitter:card" content="summary">
-              <meta name="twitter:title" content="${title}">
-              <meta name="twitter:description" content="${description}">
-            `;
-            html = html.replace('<title>My Google AI Studio App</title>', meta);
-            return res.send(html);
-          }
-        } catch (e) {
-          console.error('Metadata injection failed:', e);
-        }
-      }
       res.sendFile(indexPath);
     });
   }
@@ -512,9 +530,12 @@ async function startServer() {
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
-  } catch (error) {
-    console.error("Failed to start server:", error);
-  }
 }
 
-startServer();
+if (!process.env.VERCEL) {
+  startListening().catch((error) => {
+    console.error("Failed to start server listening:", error);
+  });
+}
+
+export default app;
