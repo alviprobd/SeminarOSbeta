@@ -372,7 +372,7 @@ export function AdminDashboard() {
             });
             
             const idToken = await auth.currentUser?.getIdToken();
-            const response = await fetch(getApiUrl('/api/send-certificates-bulk', siteSettings?.siteUrl), {
+            const response = await fetch(getApiUrl('/api/send-certificates-bulk', siteSettings?.apiUrl), {
               method: 'POST',
               headers: { 
                 'Content-Type': 'application/json',
@@ -458,7 +458,7 @@ export function AdminDashboard() {
             });
 
             const idToken = await auth.currentUser?.getIdToken();
-            const response = await fetch(getApiUrl('/api/send-certificates-bulk', siteSettings?.siteUrl), {
+            const response = await fetch(getApiUrl('/api/send-certificates-bulk', siteSettings?.apiUrl), {
               method: 'POST',
               headers: { 
                 'Content-Type': 'application/json',
@@ -686,7 +686,7 @@ export function AdminDashboard() {
       });
 
       const idToken = await auth.currentUser?.getIdToken();
-      const response = await fetch(getApiUrl('/api/send-certificates-bulk', siteSettings?.siteUrl), {
+      const response = await fetch(getApiUrl('/api/send-certificates-bulk', siteSettings?.apiUrl), {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -904,7 +904,7 @@ export function AdminDashboard() {
         if (emailBatchData.length > 0) {
           // Call bulk backend API
           const idToken = await auth.currentUser?.getIdToken();
-          const response = await fetch(getApiUrl('/api/send-certificates-bulk', siteSettings?.siteUrl), {
+          const response = await fetch(getApiUrl('/api/send-certificates-bulk', siteSettings?.apiUrl), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

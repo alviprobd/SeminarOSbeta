@@ -140,7 +140,7 @@ export function AttendancePage() {
             .replace(/{site_name}/g, siteSettings.siteName || 'Seminar OS');
 
           const idToken = await auth.currentUser?.getIdToken();
-          const response = await fetch(getApiUrl('/api/send-certificate', siteSettings?.siteUrl), { // Reusing the same endpoint for sending general emails
+          const response = await fetch(getApiUrl('/api/send-certificate', siteSettings?.apiUrl), { // Reusing the same endpoint for sending general emails
             method: 'POST',
             headers: { 
               'Content-Type': 'application/json',

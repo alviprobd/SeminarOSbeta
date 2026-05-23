@@ -88,12 +88,12 @@ export const logEmailClientSide = async (emailData: {
   }
 };
 
-export const getApiUrl = (endpoint: string, siteUrl?: string) => {
+export const getApiUrl = (endpoint: string, apiUrl?: string) => {
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-  if (!siteUrl || !siteUrl.startsWith('http')) {
+  if (!apiUrl || !apiUrl.startsWith('http')) {
     return cleanEndpoint;
   }
-  const base = siteUrl.endsWith('/') ? siteUrl.slice(0, -1) : siteUrl;
+  const base = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
   return `${base}${cleanEndpoint}`;
 };
 

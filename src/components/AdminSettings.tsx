@@ -28,6 +28,7 @@ export function AdminSettings() {
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [settings, setSettings] = useState({
     siteUrl: window.location.origin,
+    apiUrl: '',
     siteLogo: '',
     logoHeight: 40,
     siteName: 'Seminar OS',
@@ -107,6 +108,7 @@ export function AdminSettings() {
         siteLogo: settings.siteLogo,
         logoHeight: settings.logoHeight,
         siteUrl: settings.siteUrl,
+        apiUrl: settings.apiUrl || '',
         enableFeedback: settings.enableFeedback
       };
       
@@ -142,7 +144,7 @@ export function AdminSettings() {
     setTesting(true);
     try {
       const idToken = await auth.currentUser?.getIdToken();
-      const response = await fetch(getApiUrl('/api/send-test-email', settings.siteUrl), {
+      const response = await fetch(getApiUrl('/api/send-test-email', settings.apiUrl), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -348,6 +350,31 @@ export function AdminSettings() {
                   </div>
                   <p className="text-[10px] text-slate-400 font-medium px-2">
                     This URL is used to generate registration and attendance links. Update this when moving to a new domain.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                    <Cpu className="w-4 h-4 text-brand-teal-light" />
+                    Backend API Server URL
+                  </label>
+                  <div className="relative">
+                    <input 
+                      type="url"
+                      value={settings.apiUrl || ''}
+                      onChange={(e) => setSettings({ ...settings, apiUrl: e.target.value })}
+                      className="w-full pl-4 pr-32 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-teal-light outline-none transition-all font-medium"
+                      placeholder="e.g. https://your-backend-domain.com"
+                    />
+                    <button 
+                      onClick={() => setSettings({ ...settings, apiUrl: window.location.origin })}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-[10px] font-bold text-slate-600 hover:bg-slate-50 transition-all"
+                    >
+                      Current Origin
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-400 font-medium px-2">
+                    Enter your Express API backend server domain. Leave this empty/blank to call paths relatively (optimal when frontend and backend share the same public URL).
                   </p>
                 </div>
               </div>
