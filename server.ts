@@ -1,4 +1,5 @@
 import express, { Request } from "express";
+import cors from "cors";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import fs from "fs";
@@ -72,17 +73,13 @@ async function startServer() {
     const app = express();
     const PORT = 3000;
 
-    // CORS middleware
-    app.use((req, res, next) => {
-      res.header("Access-Control-Allow-Origin", "*");
-      res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-      res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-      
-      if (req.method === "OPTIONS") {
-        return res.sendStatus(200);
-      }
-      next();
-    });
+    // CORS configuration using standard cors package
+    app.use(cors({
+      origin: true, // Echoes back the requesting origin automatically, supporting cross-domain AJAX with credentials
+      credentials: true,
+      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+      allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"]
+    }));
 
   app.use(express.json({ limit: '100mb' }));
 
