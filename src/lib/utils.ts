@@ -30,3 +30,50 @@ export function getApiUrl(path: string, siteSettings?: any): string {
   // Otherwise, use relative path local to host
   return path;
 }
+
+export async function apiFetch(path: string, options: any = {}, siteSettings?: any) {
+  const url = getApiUrl(path, siteSettings);
+  const idToken = options.idToken;
+  
+  // Decide whether to use Simple Request (no preflight) or Standard Request
+  // Simple Requests are used when calling a cross-domain URL (i.e. not the current domain)
+  const isCrossDomain = url.startsWith('http') && !url.includes(window.location.hostname);
+  
+  if (isCrossDomain) {
+    // Avoid CORS preflight by:
+    // 1. Using 'text/plain' content type (which doesn't trigger preflight)
+    // 2. Putting the authentication token inside the body instead of 'Authorization' header!
+    let bodyObj = {};
+    if (options.body) {
+      try {
+        bodyObj = typeof options.body === 'string' ? JSON.parse(options.body) : options.body;
+      } catch (e) {
+        bodyObj = { rawBody: options.body };
+      }
+    }
+    
+    if (idToken) {
+      (bodyObj as any).idToken = idToken; // Inject the token in body
+    }
+    
+    return fetch(url, {
+      method: options.method || 'POST',
+      headers: {
+        'Content-Type': 'text/plain'
+      },
+      body: JSON.stringify(bodyObj)
+    });
+  } else {
+    // Standard request
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(idToken && { 'Authorization': `Bearer ${idToken}` }),
+      ...options.headers
+    };
+    
+    return fetch(url, {
+      ...options,
+      headers
+    });
+  }
+}

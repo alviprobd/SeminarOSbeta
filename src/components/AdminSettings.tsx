@@ -11,7 +11,7 @@ import {
   Users, Plus, Hash, List, Filter, XCircle, CheckCircle,
   FileSearch, Clock, ChevronRight, User, Sparkles
 } from 'lucide-react';
-import { cn, getApiUrl } from '../lib/utils';
+import { cn, getApiUrl, apiFetch } from '../lib/utils';
 import { APP_VERSION } from '../constants';
 import { format } from 'date-fns';
 
@@ -141,12 +141,9 @@ export function AdminSettings() {
     setTesting(true);
     try {
       const idToken = await auth.currentUser?.getIdToken();
-      const response = await fetch(getApiUrl('/api/send-test-email', settings), {
+      const response = await apiFetch('/api/send-test-email', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`
-        },
+        idToken,
         body: JSON.stringify({
           email: settings.gmailEmail,
           appPassword: settings.gmailAppPassword,
@@ -155,7 +152,7 @@ export function AdminSettings() {
           smtpPort: settings.smtpPort,
           smtpSecure: settings.smtpSecure
         }),
-      });
+      }, settings);
 
       const data = await response.json();
       if (response.ok) {

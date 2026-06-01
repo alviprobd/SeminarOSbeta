@@ -11,7 +11,7 @@ import {
   Send, Star
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { cn, getApiUrl } from '../lib/utils';
+import { cn, getApiUrl, apiFetch } from '../lib/utils';
 import { AnimatePresence } from 'motion/react';
 
 export function AttendancePage() {
@@ -140,12 +140,9 @@ export function AttendancePage() {
             .replace(/{site_name}/g, siteSettings.siteName || 'Seminar OS');
 
           const idToken = await auth.currentUser?.getIdToken();
-          const response = await fetch(getApiUrl('/api/send-certificate', siteSettings), { // Reusing the same endpoint for sending general emails
+          const response = await apiFetch('/api/send-certificate', {
             method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${idToken}`
-            },
+            idToken,
             body: JSON.stringify({
               gmailEmail: siteSettings.gmailEmail,
               gmailAppPassword: siteSettings.gmailAppPassword,
@@ -155,7 +152,7 @@ export function AttendancePage() {
               attachmentBase64: '', // No attachment for feedback
               fileName: ''
             })
-          });
+          }, siteSettings);
 
           if (response.ok) {
             const result = await response.json();

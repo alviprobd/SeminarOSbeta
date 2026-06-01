@@ -81,16 +81,46 @@ async function startServer() {
       allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"]
     }));
 
+    // Support parsing JSON from text/plain to avoid CORS preflight (simple POST requests)
+    app.use((req, res, next) => {
+      if (req.method === 'POST' && req.headers['content-type']?.includes('text/plain')) {
+        let data = '';
+        req.on('data', chunk => {
+          data += chunk;
+        });
+        req.on('end', () => {
+          if (data) {
+            try {
+              req.body = JSON.parse(data);
+            } catch (e) {
+              req.body = data;
+            }
+          }
+          next();
+        });
+      } else {
+        next();
+      }
+    });
+
   app.use(express.json({ limit: '100mb' }));
 
   // Middleware to verify Firebase ID Token
   const authenticate = async (req: any, res: any, next: any) => {
+    let idToken = '';
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      idToken = authHeader.split('Bearer ')[1];
+    } else if (req.body && req.body.idToken) {
+      idToken = req.body.idToken;
+    } else if (req.query && req.query.token) {
+      idToken = req.query.token as string;
+    }
+
+    if (!idToken) {
       return res.status(401).json({ error: 'Unauthorized: No token provided' });
     }
 
-    const idToken = authHeader.split('Bearer ')[1];
     try {
       const decodedToken = await getAuth().verifyIdToken(idToken);
       req.user = decodedToken;
