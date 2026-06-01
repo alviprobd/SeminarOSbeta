@@ -20,7 +20,7 @@ import {
 import QRCode from 'qrcode';
 import { format, startOfMonth, startOfWeek, isSameMonth, isSameWeek, parseISO } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area } from 'recharts';
-import { cn } from '../lib/utils';
+import { cn, getApiUrl } from '../lib/utils';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'motion/react';
 import { DEPARTMENTS, PREDEFINED_LOCATIONS } from '../constants';
@@ -372,7 +372,7 @@ export function AdminDashboard() {
             });
             
             const idToken = await auth.currentUser?.getIdToken();
-            const response = await fetch('/api/send-certificates-bulk', {
+            const response = await fetch(getApiUrl('/api/send-certificates-bulk', siteSettings), {
               method: 'POST',
               headers: { 
                 'Content-Type': 'application/json',
@@ -458,7 +458,7 @@ export function AdminDashboard() {
             });
 
             const idToken = await auth.currentUser?.getIdToken();
-            const response = await fetch('/api/send-certificates-bulk', {
+            const response = await fetch(getApiUrl('/api/send-certificates-bulk', siteSettings), {
               method: 'POST',
               headers: { 
                 'Content-Type': 'application/json',
@@ -686,7 +686,7 @@ export function AdminDashboard() {
       });
 
       const idToken = await auth.currentUser?.getIdToken();
-      const response = await fetch('/api/send-certificates-bulk', {
+      const response = await fetch(getApiUrl('/api/send-certificates-bulk', siteSettings), {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -904,7 +904,7 @@ export function AdminDashboard() {
         if (emailBatchData.length > 0) {
           // Call bulk backend API
           const idToken = await auth.currentUser?.getIdToken();
-          const response = await fetch('/api/send-certificates-bulk', {
+          const response = await fetch(getApiUrl('/api/send-certificates-bulk', siteSettings), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

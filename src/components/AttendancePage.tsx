@@ -11,7 +11,7 @@ import {
   Send, Star
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { cn } from '../lib/utils';
+import { cn, getApiUrl } from '../lib/utils';
 import { AnimatePresence } from 'motion/react';
 
 export function AttendancePage() {
@@ -140,7 +140,7 @@ export function AttendancePage() {
             .replace(/{site_name}/g, siteSettings.siteName || 'Seminar OS');
 
           const idToken = await auth.currentUser?.getIdToken();
-          const response = await fetch('/api/send-certificate', { // Reusing the same endpoint for sending general emails
+          const response = await fetch(getApiUrl('/api/send-certificate', siteSettings), { // Reusing the same endpoint for sending general emails
             method: 'POST',
             headers: { 
               'Content-Type': 'application/json',
