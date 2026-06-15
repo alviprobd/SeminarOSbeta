@@ -11,7 +11,7 @@ import {
   Users, Plus, Hash, List, Filter, XCircle, CheckCircle,
   FileSearch, Clock, ChevronRight, User, Sparkles
 } from 'lucide-react';
-import { cn, getApiUrl, apiFetch } from '../lib/utils';
+import { cn } from '../lib/utils';
 import { APP_VERSION } from '../constants';
 import { format } from 'date-fns';
 
@@ -26,7 +26,6 @@ export function AdminSettings() {
   const [activeTab, setActiveTab] = useState<'general' | 'email' | 'updates' | 'referral'>('general');
   const [settings, setSettings] = useState({
     siteUrl: window.location.origin,
-    apiBaseUrl: '',
     siteLogo: '',
     logoHeight: 40,
     siteName: 'Seminar OS',
@@ -99,7 +98,6 @@ export function AdminSettings() {
         siteLogo: settings.siteLogo,
         logoHeight: settings.logoHeight,
         siteUrl: settings.siteUrl,
-        apiBaseUrl: settings.apiBaseUrl || '',
         enableFeedback: settings.enableFeedback,
         heroBadge: settings.heroBadge || 'Streamline Your Academic Events',
         heroTitle: settings.heroTitle || 'Elevate Your Seminar',
@@ -141,9 +139,12 @@ export function AdminSettings() {
     setTesting(true);
     try {
       const idToken = await auth.currentUser?.getIdToken();
-      const response = await apiFetch('/api/send-test-email', {
+      const response = await fetch('/api/send-test-email', {
         method: 'POST',
-        idToken,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
         body: JSON.stringify({
           email: settings.gmailEmail,
           appPassword: settings.gmailAppPassword,
@@ -152,7 +153,7 @@ export function AdminSettings() {
           smtpPort: settings.smtpPort,
           smtpSecure: settings.smtpSecure
         }),
-      }, settings);
+      });
 
       const data = await response.json();
       if (response.ok) {
@@ -326,38 +327,13 @@ export function AdminSettings() {
                     />
                     <button 
                       onClick={() => setSettings({ ...settings, siteUrl: window.location.origin })}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-[10px] font-bold text-slate-600 hover:bg-slate-50 transition-all font-sans"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-[10px] font-bold text-slate-600 hover:bg-slate-50 transition-all"
                     >
                       Current Domain
                     </button>
                   </div>
                   <p className="text-[10px] text-slate-400 font-medium px-2">
                     This URL is used to generate registration and attendance links. Update this when moving to a new domain.
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                    <Cpu className="w-4 h-4 text-brand-teal-light animate-pulse" />
-                    Backend Server API URL
-                  </label>
-                  <div className="relative">
-                    <input 
-                      type="url"
-                      value={settings.apiBaseUrl || ''}
-                      onChange={(e) => setSettings({ ...settings, apiBaseUrl: e.target.value })}
-                      className="w-full pl-4 pr-32 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-teal-light outline-none transition-all font-medium font-mono text-sm"
-                      placeholder="https://ais-pre-auvu3lctrioame42hxvz3s-613468857344.asia-southeast1.run.app"
-                    />
-                    <button 
-                      onClick={() => setSettings({ ...settings, apiBaseUrl: 'https://ais-pre-auvu3lctrioame42hxvz3s-613468857344.asia-southeast1.run.app' })}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-[10px] font-bold text-slate-600 hover:bg-slate-50 transition-all font-sans"
-                    >
-                      Use Demo Server
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-slate-400 font-medium px-2">
-                    Optional. Crucial for client-side deployments (like Vercel, Netlify, cPanel, etc.). Enter the full Cloud Run domain of this workspace backend, and the application will proxy all email integrations there. Leave empty to use local routing.
                   </p>
                 </div>
               </div>

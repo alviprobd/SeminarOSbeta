@@ -20,7 +20,7 @@ import {
 import QRCode from 'qrcode';
 import { format, startOfMonth, startOfWeek, isSameMonth, isSameWeek, parseISO } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area } from 'recharts';
-import { cn, getApiUrl, apiFetch } from '../lib/utils';
+import { cn } from '../lib/utils';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'motion/react';
 import { DEPARTMENTS, PREDEFINED_LOCATIONS } from '../constants';
@@ -372,9 +372,12 @@ export function AdminDashboard() {
             });
             
             const idToken = await auth.currentUser?.getIdToken();
-            const response = await apiFetch('/api/send-certificates-bulk', {
+            const response = await fetch('/api/send-certificates-bulk', {
               method: 'POST',
-              idToken,
+              headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${idToken}`
+              },
               body: JSON.stringify({
                 gmailEmail: siteSettings.gmailEmail,
                 gmailAppPassword: siteSettings.gmailAppPassword,
@@ -383,7 +386,7 @@ export function AdminDashboard() {
                 smtpSecure: siteSettings.smtpSecure,
                 emails: emailBatchData
               }),
-            }, siteSettings);
+            });
             
             if (response.ok) {
               const batchResult = await response.json();
@@ -455,9 +458,12 @@ export function AdminDashboard() {
             });
 
             const idToken = await auth.currentUser?.getIdToken();
-            const response = await apiFetch('/api/send-certificates-bulk', {
+            const response = await fetch('/api/send-certificates-bulk', {
               method: 'POST',
-              idToken,
+              headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${idToken}`
+              },
               body: JSON.stringify({
                 gmailEmail: siteSettings.gmailEmail,
                 gmailAppPassword: siteSettings.gmailAppPassword,
@@ -466,7 +472,7 @@ export function AdminDashboard() {
                 smtpSecure: siteSettings.smtpSecure,
                 emails: emailBatchData
               }),
-            }, siteSettings);
+            });
 
             if (response.ok) {
               const batchResult = await response.json();
@@ -680,9 +686,12 @@ export function AdminDashboard() {
       });
 
       const idToken = await auth.currentUser?.getIdToken();
-      const response = await apiFetch('/api/send-certificates-bulk', {
+      const response = await fetch('/api/send-certificates-bulk', {
         method: 'POST',
-        idToken,
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
         body: JSON.stringify({
           gmailEmail: siteSettings.gmailEmail,
           gmailAppPassword: siteSettings.gmailAppPassword,
@@ -691,7 +700,7 @@ export function AdminDashboard() {
           smtpSecure: siteSettings.smtpSecure,
           emails: emailBatchData
         }),
-      }, siteSettings);
+      });
 
       if (response.ok) {
         const batchResult = await response.json();
@@ -895,9 +904,12 @@ export function AdminDashboard() {
         if (emailBatchData.length > 0) {
           // Call bulk backend API
           const idToken = await auth.currentUser?.getIdToken();
-          const response = await apiFetch('/api/send-certificates-bulk', {
+          const response = await fetch('/api/send-certificates-bulk', {
             method: 'POST',
-            idToken,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${idToken}`
+            },
             body: JSON.stringify({
               gmailEmail: siteSettings.gmailEmail,
               gmailAppPassword: siteSettings.gmailAppPassword,
@@ -906,7 +918,7 @@ export function AdminDashboard() {
               smtpSecure: siteSettings.smtpSecure,
               emails: emailBatchData
             }),
-          }, siteSettings);
+          });
 
           if (!response.ok) {
             const errorData = await response.json();
