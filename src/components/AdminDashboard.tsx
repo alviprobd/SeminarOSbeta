@@ -253,6 +253,10 @@ export function AdminDashboard() {
   const [isCompletedCollapsed, setIsCompletedCollapsed] = useState(true);
   const [globalSearch, setGlobalSearch] = useState('');
   const [siteSettings, setSiteSettings] = useState<any>(null);
+  const cleanBaseUrl = useMemo(() => {
+    const rawUrl = siteSettings?.siteUrl || window.location.origin;
+    return rawUrl.trim().replace(/\/+$/, '');
+  }, [siteSettings]);
   const [checkingAutomatedEmails, setCheckingAutomatedEmails] = useState(false);
   const [newSeminar, setNewSeminar] = useState({
     title: '',
@@ -437,7 +441,9 @@ export function AdminDashboard() {
             console.log(`Sending ${pendingFollowUps.length} follow-ups for ${seminar.title}`);
             const emailBatchData = pendingFollowUps.map(a => {
               const studentName = a.studentName || 'Student';
-              const certLink = `${siteSettings.siteUrl || window.location.origin}/verify`;
+              const rawUrl = siteSettings?.siteUrl || window.location.origin;
+              const cleanUrl = rawUrl.trim().replace(/\/+$/, '');
+              const certLink = `${cleanUrl}/verify`;
 
               let subject = (siteSettings.followUpSubject || 'Thank you for attending {seminar_title}!')
                 .replace(/{seminar_title}/g, seminar.title)
@@ -772,9 +778,8 @@ export function AdminDashboard() {
   };
 
   const copyLink = (type: 'register' | 'attendance', id: string) => {
-    const baseUrl = siteSettings?.siteUrl || window.location.origin;
     const path = type === 'register' ? `/register/${id}` : `/attendance/${id}`;
-    navigator.clipboard.writeText(`${baseUrl}${path}`);
+    navigator.clipboard.writeText(`${cleanBaseUrl}${path}`);
     toast.success(`${type === 'register' ? 'Registration' : 'Attendance'} link copied!`);
   };
 
@@ -1103,9 +1108,8 @@ export function AdminDashboard() {
 
   const generateQRCodePDF = async () => {
     if (!selectedSeminar) return;
-    const baseUrl = siteSettings?.siteUrl || window.location.origin;
-    const registerUrl = `${baseUrl}/register/${selectedSeminar.id}`;
-    const attendanceUrl = `${baseUrl}/attendance/${selectedSeminar.id}`;
+    const registerUrl = `${cleanBaseUrl}/register/${selectedSeminar.id}`;
+    const attendanceUrl = `${cleanBaseUrl}/attendance/${selectedSeminar.id}`;
 
     try {
       const registerQR = await QRCode.toDataURL(registerUrl, { width: 400, margin: 2 });
@@ -2495,7 +2499,7 @@ export function AdminDashboard() {
                 <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Registration Link</label>
                 <div className="flex gap-2">
                   <div className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm text-slate-600 truncate font-medium">
-                    {`${siteSettings?.siteUrl || window.location.origin}/register/${shareSeminar.id}`}
+                    {`${cleanBaseUrl}/register/${shareSeminar.id}`}
                   </div>
                   <button 
                     onClick={() => copyLink('register', shareSeminar.id)}
@@ -2510,7 +2514,7 @@ export function AdminDashboard() {
                 <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Attendance Link</label>
                 <div className="flex gap-2">
                   <div className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm text-slate-600 truncate font-medium">
-                    {`${siteSettings?.siteUrl || window.location.origin}/attendance/${shareSeminar.id}`}
+                    {`${cleanBaseUrl}/attendance/${shareSeminar.id}`}
                   </div>
                   <button 
                     onClick={() => copyLink('attendance', shareSeminar.id)}

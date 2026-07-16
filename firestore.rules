@@ -33,9 +33,9 @@ service cloud.firestore {
 
     function isAdmin() {
       return isSignedIn() && (
-        (request.auth.token.get('email_verified', false) == true) && (
-          request.auth.token.get('email', '').lower() == "alvicourse@gmail.com" || 
-          request.auth.token.get('email', '').lower() == "cdc@creativealvi.com" ||
+        request.auth.token.get('email_verified', false) == true && (
+          request.auth.token.get('email', '') == "alvicourse@gmail.com" || 
+          request.auth.token.get('email', '') == "cdc@creativealvi.com" ||
           (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'student') == 'admin')
         )
@@ -93,12 +93,13 @@ service cloud.firestore {
     match /users/{userId} {
       allow get: if true;
       allow list: if isSignedIn();
-      allow create: if isSignedIn() && isOwner(userId) && isValidUser(incoming()) && 
+      allow create: if isSignedIn() && (isOwner(userId) || isAdmin()) && isValidUser(incoming()) && 
                     (incoming().role == 'student' || isAdmin());
       allow update: if isSignedIn() && (isOwner(userId) || isAdmin()) && isValidUser(incoming()) && (
         (incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'dept', 'photoUrl'])) ||
         isAdmin()
       );
+      allow delete: if isAdmin();
     }
 
     match /seminars/{seminarId} {

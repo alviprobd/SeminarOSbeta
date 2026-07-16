@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { doc, getDoc, setDoc, collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteDoc, collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType, logEmailClientSide } from '../lib/firebase';
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
+import { initializeApp, getApp, getApps } from 'firebase/app';
+import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { 
   Settings, Globe, Image as ImageIcon, Save, 
   Loader2, Link as LinkIcon, Upload, Trash2,
@@ -23,7 +25,19 @@ export function AdminSettings() {
   const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'latest' | 'available'>('idle');
   const [repoStatus, setRepoStatus] = useState<'connected' | 'checking' | 'error'>('connected');
   const [testRecipient, setTestRecipient] = useState('');
-  const [activeTab, setActiveTab] = useState<'general' | 'email' | 'updates' | 'referral'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'email' | 'updates' | 'referral' | 'users'>('general');
+
+  // User Creation State
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [newUserRole, setNewUserRole] = useState<'student' | 'admin'>('student');
+  const [creatingUser, setCreatingUser] = useState(false);
+
+  // User Management List States
+  const [usersList, setUsersList] = useState<any[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [settings, setSettings] = useState({
     siteUrl: window.location.origin,
     siteLogo: '',
@@ -87,17 +101,71 @@ export function AdminSettings() {
     fetchSettings();
   }, []);
 
+  useEffect(() => {
+    if (activeTab !== 'users') return;
+
+    setLoadingUsers(true);
+    const q = query(collection(db, 'users'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const userList: any[] = [];
+      snapshot.forEach((doc) => {
+        userList.push({ id: doc.id, ...doc.data() });
+      });
+      userList.sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      });
+      setUsersList(userList);
+      setLoadingUsers(false);
+    }, (error) => {
+      console.error("Error fetching users:", error);
+      handleFirestoreError(error, OperationType.LIST, 'users');
+      setLoadingUsers(false);
+    });
+
+    return () => unsubscribe();
+  }, [activeTab]);
+
+  const handleDeleteUser = async (userId: string, userEmail: string) => {
+    // Prevent the admin from deleting themselves
+    if (auth.currentUser?.uid === userId || auth.currentUser?.email === userEmail) {
+      toast.error("You cannot delete your own administrative account.");
+      return;
+    }
+    
+    setDeletingUserId(userId);
+    try {
+      const userRef = doc(db, 'users', userId);
+      await deleteDoc(userRef);
+      toast.success(`Successfully deleted user profile for ${userEmail}`);
+      setConfirmDeleteId(null);
+    } catch (error) {
+      console.error("Error deleting user document:", error);
+      handleFirestoreError(error, OperationType.DELETE, `users/${userId}`);
+      toast.error("Failed to delete user profile");
+    } finally {
+      setDeletingUserId(null);
+    }
+  };
+
 
 
   const handleSave = async () => {
     setSaving(true);
     try {
+      const sanitizedSiteUrl = (settings.siteUrl || '').trim().replace(/\/+$/, '');
+      const updatedSettings = {
+        ...settings,
+        siteUrl: sanitizedSiteUrl
+      };
+
       // Split settings into public (branding) and private (general/email)
       const branding = {
         siteName: settings.siteName,
         siteLogo: settings.siteLogo,
         logoHeight: settings.logoHeight,
-        siteUrl: settings.siteUrl,
+        siteUrl: sanitizedSiteUrl,
         enableFeedback: settings.enableFeedback,
         heroBadge: settings.heroBadge || 'Streamline Your Academic Events',
         heroTitle: settings.heroTitle || 'Elevate Your Seminar',
@@ -115,7 +183,7 @@ export function AdminSettings() {
       };
       await setDoc(doc(db, 'siteSettings', 'referral'), referralData);
       
-      await setDoc(doc(db, 'siteSettings', 'general'), settings);
+      await setDoc(doc(db, 'siteSettings', 'general'), updatedSettings);
       
       toast.success('Settings saved successfully!');
     } catch (error) {
@@ -123,6 +191,75 @@ export function AdminSettings() {
       toast.error('Failed to save settings');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUserEmail || !newUserPassword || !newUserRole) {
+      toast.error('Please fill in all user creation fields.');
+      return;
+    }
+    if (newUserPassword.length < 6) {
+      toast.error('Password must be at least 6 characters long.');
+      return;
+    }
+
+    setCreatingUser(true);
+    try {
+      // Initialize or retrieve secondary app
+      let secondaryApp;
+      const appName = 'SecondaryUserManager';
+      if (getApps().some(app => app.name === appName)) {
+        secondaryApp = getApp(appName);
+      } else {
+        secondaryApp = initializeApp({
+          projectId: "gen-lang-client-0758178203",
+          appId: "1:380694644226:web:667e436ebb4716d197091b",
+          apiKey: "AIzaSyAFEiNX32LFclGVJ6P48jF6MMcgPHCaoFg",
+          authDomain: "gen-lang-client-0758178203.firebaseapp.com",
+          storageBucket: "gen-lang-client-0758178203.firebasestorage.app",
+          messagingSenderId: "380694644226",
+        }, appName);
+      }
+
+      const secondaryAuth = getAuth(secondaryApp);
+
+      // Create user client-side via secondary Firebase App instance
+      const userCredential = await createUserWithEmailAndPassword(secondaryAuth, newUserEmail, newUserPassword);
+      const newUser = userCredential.user;
+
+      if (!newUser) {
+        throw new Error('Failed to create account credential.');
+      }
+
+      // Write user details to firestore collection using the admin's database instance 
+      try {
+        const userRef = doc(db, 'users', newUser.uid);
+        await setDoc(userRef, {
+          uid: newUser.uid,
+          email: newUserEmail,
+          role: newUserRole,
+          createdAt: new Date().toISOString()
+        });
+      } catch (dbError) {
+        handleFirestoreError(dbError, OperationType.WRITE, `users/${newUser.uid}`);
+      }
+
+      // Instantly sign out from secondary app session so it doesn't linger 
+      await signOut(secondaryAuth);
+
+      toast.success(`Successfully created user ${newUserEmail} with role ${newUserRole}!`);
+      
+      // Reset field states
+      setNewUserEmail('');
+      setNewUserPassword('');
+      setNewUserRole('student');
+    } catch (error: any) {
+      console.error('Error creating user:', error);
+      toast.error(error.message || 'Failed to create user');
+    } finally {
+      setCreatingUser(false);
     }
   };
 
@@ -281,6 +418,19 @@ export function AdminSettings() {
         >
           <Users className={cn("w-4 h-4", activeTab === 'referral' ? "text-white" : "text-slate-400")} />
           Referral
+        </button>
+
+        <button
+          onClick={() => setActiveTab('users')}
+          className={cn(
+            "flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap",
+            activeTab === 'users' 
+              ? "bg-brand-teal-light text-white shadow-md" 
+              : "text-slate-500 hover:text-slate-700 hover:bg-white/50"
+          )}
+        >
+          <Users className={cn("w-4 h-4", activeTab === 'users' ? "text-white" : "text-slate-400")} />
+          Add User/Admin
         </button>
       </div>
 
@@ -1088,7 +1238,229 @@ export function AdminSettings() {
           </div>
         )}
 
-        {activeTab !== 'updates' && (
+        {activeTab === 'users' && (
+          <div className="space-y-8">
+            <motion.section 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white p-5 sm:p-8 rounded-3xl border border-slate-200 shadow-sm"
+            >
+              <div className="flex items-center gap-3 mb-8">
+                <div className="w-10 h-10 bg-teal-50 rounded-xl flex items-center justify-center text-brand-teal-light">
+                  <Users className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900">Add User or Admin</h2>
+                  <p className="text-xs text-slate-500 font-medium">Create and register a student or administrator directly into the platform.</p>
+                </div>
+              </div>
+
+              <form onSubmit={handleCreateUser} className="space-y-6">
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                      <Mail className="w-4 h-4 text-slate-400" />
+                      Email Address
+                    </label>
+                    <input 
+                      type="email"
+                      required
+                      value={newUserEmail}
+                      onChange={(e) => setNewUserEmail(e.target.value)}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-teal-light outline-none transition-all font-medium text-slate-900"
+                      placeholder="e.g. user@domain.com"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                      <Key className="w-4 h-4 text-slate-400" />
+                      Password
+                    </label>
+                    <input 
+                      type="password"
+                      required
+                      minLength={6}
+                      value={newUserPassword}
+                      onChange={(e) => setNewUserPassword(e.target.value)}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-teal-light outline-none transition-all font-medium text-slate-900"
+                      placeholder="Min 6 characters"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-slate-700">Account Role</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setNewUserRole('student')}
+                      className={cn(
+                        "flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all text-center",
+                        newUserRole === 'student'
+                          ? "border-brand-teal-light bg-teal-50/10 text-brand-teal-light"
+                          : "border-slate-100 hover:border-slate-200 text-slate-600 bg-slate-50/50"
+                      )}
+                    >
+                      <User className="w-6 h-6 mb-2" />
+                      <span className="font-bold text-sm">Student</span>
+                      <span className="text-[10px] opacity-75 mt-0.5">Seminar Attendee</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setNewUserRole('admin')}
+                      className={cn(
+                        "flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all text-center",
+                        newUserRole === 'admin'
+                          ? "border-brand-teal-light bg-teal-50/10 text-brand-teal-light"
+                          : "border-slate-100 hover:border-slate-200 text-slate-600 bg-slate-50/50"
+                      )}
+                    >
+                      <Users className="w-6 h-6 mb-2" />
+                      <span className="font-bold text-sm">Administrator</span>
+                      <span className="text-[10px] opacity-75 mt-0.5">Platform Controller</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-slate-100 flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={creatingUser}
+                    className="px-8 py-3.5 bg-brand-teal-light hover:bg-brand-teal-dark text-white font-bold rounded-2xl transition-all shadow-md flex items-center gap-2.5 disabled:opacity-50"
+                  >
+                    {creatingUser ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Creating Account...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-5 h-5" />
+                        Create Account
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </motion.section>
+
+            <motion.section
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="bg-white p-5 sm:p-8 rounded-3xl border border-slate-200 shadow-sm"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-teal-50 rounded-xl flex items-center justify-center text-brand-teal-light">
+                    <List className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900">Registered Users</h2>
+                    <p className="text-xs text-slate-500 font-medium">All registered accounts with active credentials categorized by role.</p>
+                  </div>
+                </div>
+                <div className="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-bold">
+                  {usersList.length} User{usersList.length !== 1 ? 's' : ''}
+                </div>
+              </div>
+
+              {loadingUsers ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-6 h-6 animate-spin text-brand-teal-light mr-2.5" />
+                  <span className="text-sm font-bold text-slate-500">Loading registered users...</span>
+                </div>
+              ) : usersList.length === 0 ? (
+                <div className="text-center py-12 border border-dashed border-slate-100 rounded-2xl">
+                  <p className="text-slate-400 font-medium">No registered users found.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-100">
+                        <th className="pb-3 text-xs font-bold text-slate-400 uppercase tracking-wider">User Details</th>
+                        <th className="pb-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Role</th>
+                        <th className="pb-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Created</th>
+                        <th className="pb-3 text-xs font-bold text-slate-400 uppercase tracking-wider text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {usersList.map((usr) => {
+                        const isSelf = auth.currentUser?.uid === usr.id || auth.currentUser?.email === usr.email;
+                        return (
+                          <tr key={usr.id} className="group hover:bg-slate-50/50 transition-colors">
+                            <td className="py-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold uppercase text-xs">
+                                  {usr.email ? usr.email.charAt(0) : 'U'}
+                                </div>
+                                <div>
+                                  <div className="text-sm font-bold text-slate-800">{usr.email || 'N/A'} {isSelf && <span className="text-xs font-medium text-slate-400">(You)</span>}</div>
+                                  <div className="text-[10px] font-mono text-slate-400">{usr.id}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-4">
+                              <span className={cn(
+                                "px-2.5 py-1 rounded-full text-xs font-bold capitalize inline-flex items-center gap-1",
+                                usr.role === 'admin' 
+                                  ? "bg-amber-50 text-amber-600 border border-amber-100" 
+                                  : "bg-teal-50/50 text-brand-teal-light border border-teal-50"
+                              )}>
+                                {usr.role === 'admin' ? <ShieldCheck className="w-3.5 h-3.5" /> : <User className="w-3.5 h-3.5" />}
+                                {usr.role || 'student'}
+                              </span>
+                            </td>
+                            <td className="py-4 text-xs font-medium text-slate-500">
+                              {usr.createdAt ? format(new Date(usr.createdAt), 'MMM dd, yyyy h:mm a') : 'N/A'}
+                            </td>
+                            <td className="py-4 text-right">
+                              {confirmDeleteId === usr.id ? (
+                                <div className="flex items-center justify-end gap-2">
+                                  <span className="text-[11px] text-red-500 font-bold">Are you sure?</span>
+                                  <button
+                                    onClick={() => handleDeleteUser(usr.id, usr.email)}
+                                    disabled={deletingUserId === usr.id}
+                                    className="px-2.5 py-1 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-lg transition-all disabled:opacity-50"
+                                  >
+                                    {deletingUserId === usr.id ? 'Deleting...' : 'Yes'}
+                                  </button>
+                                  <button
+                                    onClick={() => setConfirmDeleteId(null)}
+                                    className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-lg transition-all"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => setConfirmDeleteId(usr.id)}
+                                  disabled={isSelf}
+                                  className={cn(
+                                    "p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all sm:opacity-0 group-hover:opacity-100",
+                                    isSelf && "opacity-20 pointer-events-none"
+                                  )}
+                                  title={isSelf ? "Cannot delete yourself" : "Delete user"}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </motion.section>
+          </div>
+        )}
+
+        {activeTab !== 'updates' && activeTab !== 'users' && (
           <div className="flex justify-end pt-4">
             <button 
               onClick={handleSave}
