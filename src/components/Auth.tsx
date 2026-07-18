@@ -7,9 +7,13 @@ import { toast } from 'sonner';
 import { Mail, Lock, User, Building2, ArrowRight, Loader2, AlertCircle, ChevronDown, RefreshCcw } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useDepartments } from '../hooks/useDepartments';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 export function Auth() {
-  const [isLogin, setIsLogin] = useState(true);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const initialIsLogin = location.state?.mode === 'signup' ? false : true;
+  const [isLogin, setIsLogin] = useState(initialIsLogin);
   const [showForgot, setShowForgot] = useState(false);
   const [loading, setLoading] = useState(false);
   const { departments } = useDepartments();

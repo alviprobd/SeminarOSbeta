@@ -181,7 +181,7 @@ function AppContent({ user, userRole, loading, siteSettings, setUser, setUserRol
                   <Leaderboard />
                 </>
               } />
-              <Route path="/auth" element={user ? <Navigate to={location.state?.from || "/dashboard"} replace /> : <Auth />} />
+              <Route path="/auth" element={user ? <Navigate to={location.state?.from || "/dashboard"} state={location.state} replace /> : <Auth />} />
               <Route 
                 path="/dashboard" 
                 element={

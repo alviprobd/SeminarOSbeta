@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { doc, getDoc, addDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { motion } from 'motion/react';
@@ -15,6 +15,7 @@ import { format } from 'date-fns';
 export function SeminarRegistration() {
   const { seminarId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [seminar, setSeminar] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [registering, setRegistering] = useState(false);
@@ -51,9 +52,20 @@ export function SeminarRegistration() {
     fetchData();
   }, [seminarId]);
 
+  useEffect(() => {
+    if (!loading && seminar && location.state?.scrollToRegister) {
+      const element = document.getElementById('registration-card');
+      if (element) {
+        setTimeout(() => {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
+      }
+    }
+  }, [loading, seminar, location.state]);
+
   const handleRegister = async () => {
     if (!auth.currentUser) {
-      navigate('/auth', { state: { from: `/register/${seminarId}` } });
+      navigate('/auth', { state: { from: `/register/${seminarId}`, mode: 'signup', scrollToRegister: true } });
       return;
     }
 
@@ -227,7 +239,7 @@ export function SeminarRegistration() {
             transition={{ delay: 0.3 }}
             className="space-y-8"
           >
-            <div className="sticky top-24">
+            <div className="sticky top-24" id="registration-card">
               <div className="bg-white dark:bg-slate-900 rounded-[40px] p-8 shadow-2xl shadow-teal-100 dark:shadow-teal-900/10 border border-teal-50 dark:border-slate-800 overflow-hidden relative">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-teal-50 dark:bg-teal-900/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
                 
