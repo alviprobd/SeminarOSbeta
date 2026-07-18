@@ -11,9 +11,10 @@ import {
 import { format } from 'date-fns';
 import { cn } from '../lib/utils';
 import { Link } from 'react-router-dom';
-import { DEPARTMENTS } from '../constants';
+import { useDepartments } from '../hooks/useDepartments';
 
 export function AllParticipants() {
+  const { departments } = useDepartments();
   const [registrations, setRegistrations] = useState<any[]>([]);
   const [seminars, setSeminars] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -157,7 +158,7 @@ export function AllParticipants() {
               className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-brand-teal-light transition-all font-medium text-slate-600"
             >
               <option value="all">All Departments</option>
-              {DEPARTMENTS.map(d => (
+              {departments.map(d => (
                 <option key={d.short} value={d.short}>{d.name}</option>
               ))}
             </select>
@@ -216,7 +217,7 @@ export function AllParticipants() {
                     <td className="px-8 py-5">
                       <div className="flex flex-col">
                         <span className="text-sm font-bold text-slate-700">
-                          {DEPARTMENTS.find(d => d.name === r.studentDept)?.short || r.studentDept}
+                          {departments.find(d => d.name === r.studentDept || d.short === r.studentDept)?.short || r.studentDept}
                         </span>
                         <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{r.studentId}</span>
                       </div>

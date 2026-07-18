@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom';
 import { Trophy, Building2, Award, Loader2, ChevronRight } from 'lucide-react';
 import { startOfMonth, endOfMonth } from 'date-fns';
 import { cn } from '../lib/utils';
-import { DEPARTMENTS } from '../constants';
+import { useDepartments } from '../hooks/useDepartments';
 
 interface TopParticipant {
   uid: string;
@@ -16,6 +16,7 @@ interface TopParticipant {
 }
 
 export function Leaderboard() {
+  const { departments } = useDepartments();
   const [topParticipants, setTopParticipants] = useState<TopParticipant[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -80,7 +81,7 @@ export function Leaderboard() {
               const userDoc = await getDoc(doc(db, 'users', uid));
               if (userDoc.exists()) {
                 const userData = userDoc.data();
-                const deptShort = DEPARTMENTS.find(d => d.name === userData.dept || d.short === userData.dept)?.short || userData.dept || 'N/A';
+                const deptShort = departments.find(d => d.name === userData.dept || d.short === userData.dept)?.short || userData.dept || 'N/A';
                 return {
                   uid,
                   count: data.count,
@@ -90,7 +91,7 @@ export function Leaderboard() {
               }
               
               // Fallback to what was in the attendance record
-              const deptShort = DEPARTMENTS.find(d => d.name === data.dept || d.short === data.dept)?.short || data.dept || 'N/A';
+              const deptShort = departments.find(d => d.name === data.dept || d.short === data.dept)?.short || data.dept || 'N/A';
               return {
                 uid,
                 count: data.count,
@@ -99,7 +100,7 @@ export function Leaderboard() {
               };
             } catch (err) {
               console.warn(`Could not fetch user details for ${uid}`, err);
-              const deptShort = DEPARTMENTS.find(d => d.name === data.dept || d.short === data.dept)?.short || data.dept || 'N/A';
+              const deptShort = departments.find(d => d.name === data.dept || d.short === data.dept)?.short || data.dept || 'N/A';
               return {
                 uid,
                 count: data.count,

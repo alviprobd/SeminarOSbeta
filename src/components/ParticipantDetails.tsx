@@ -10,10 +10,11 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '../lib/utils';
-import { DEPARTMENTS } from '../constants';
+import { useDepartments } from '../hooks/useDepartments';
 import { CertificatePreview } from './CertificatePreview';
 
 export function ParticipantDetails() {
+  const { departments } = useDepartments();
   const { studentUid } = useParams();
   const navigate = useNavigate();
   const [student, setStudent] = useState<any>(null);
@@ -150,7 +151,7 @@ export function ParticipantDetails() {
                   <div className="flex flex-col">
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Department</span>
                     <span className="text-sm font-bold text-slate-700">
-                      {DEPARTMENTS.find(d => d.short === student?.dept || d.name === student?.dept)?.name || student?.dept || 'N/A'}
+                      {departments.find(d => d.short === student?.dept || d.name === student?.dept)?.name || student?.dept || 'N/A'}
                     </span>
                   </div>
                 </div>

@@ -125,23 +125,41 @@ async function startServer() {
   let currentConfig: string = "";
 
   const getTransporter = (email: string, pass: string, options?: { host?: string, port?: number, secure?: boolean }) => {
-    const configKey = `${email}:${pass}:${options?.host || ""}:${options?.port || ""}:${options?.secure}`;
+    // If options.host is explicitly set to empty string, treat it as empty
+    const resolvedHost = (options?.host && options.host.trim() !== "") ? options.host.trim() : undefined;
+    const smtpHost = resolvedHost || (options?.host === undefined ? (process.env.SMTP_HOST || undefined) : undefined);
+    
+    const smtpPort = options?.port !== undefined ? options.port : parseInt(process.env.SMTP_PORT || "465");
+    
+    let smtpSecure = options?.secure !== undefined ? options.secure : (process.env.SMTP_SECURE !== "false"); // Default to true (SSL/TLS)
+ 
+    // Auto-correct secure option based on port to prevent "Greeting never received"
+    if (smtpPort === 587 || smtpPort === 25 || smtpPort === 2525) {
+      smtpSecure = false;
+    } else if (smtpPort === 465) {
+      smtpSecure = true;
+    }
+
+    const configKey = `${email}:${pass}:${smtpHost || ""}:${smtpPort}:${smtpSecure}`;
     if (mailTransporter && currentConfig === configKey) {
       return mailTransporter;
     }
- 
-    const smtpHost = options?.host || process.env.SMTP_HOST; // e.g., smtp.gmail.com or mail.yourdomain.com
-    const smtpPort = options?.port || parseInt(process.env.SMTP_PORT || "465");
-    const smtpSecure = options?.secure !== undefined ? options.secure : (process.env.SMTP_SECURE !== "false"); // Default to true (SSL/TLS)
- 
+
     const transportConfig: any = {
       pool: true,
       maxConnections: 5,
       maxMessages: 100,
+      connectionTimeout: 10000, // 10 seconds timeout
+      greetingTimeout: 10000,
+      socketTimeout: 20000,
       auth: {
         user: email,
         pass: pass,
       },
+      tls: {
+        // Do not fail on self-signed/invalid certificates
+        rejectUnauthorized: false
+      }
     };
 
     if (smtpHost) {

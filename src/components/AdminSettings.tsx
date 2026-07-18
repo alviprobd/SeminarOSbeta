@@ -11,10 +11,10 @@ import {
   Mail, Key, Send, AlertCircle, Cpu, RefreshCw,
   CheckCircle2, Github, ExternalLink, ShieldCheck,
   Users, Plus, Hash, List, Filter, XCircle, CheckCircle,
-  FileSearch, Clock, ChevronRight, User, Sparkles
+  FileSearch, Clock, ChevronRight, User, Sparkles, Building2
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { APP_VERSION } from '../constants';
+import { APP_VERSION, DEPARTMENTS } from '../constants';
 import { format } from 'date-fns';
 
 export function AdminSettings() {
@@ -71,10 +71,16 @@ export function AdminSettings() {
     heroHighlight: 'Experience',
     heroDescription: 'The premier platform for academic excellence. Organize, track, and certify seminars with automated attendance and powerful analytics.',
     heroPrimaryBtnText: 'Get Started Now',
-    heroSecondaryBtnText: 'Verify Certificate'
+    heroSecondaryBtnText: 'Verify Certificate',
+    departments: [] as Array<{ name: string; short: string }>,
   });
   const [newOption, setNewOption] = useState('');
   const [newCode, setNewCode] = useState('');
+
+  // Department State
+  const [singleDeptName, setSingleDeptName] = useState('');
+  const [singleDeptShort, setSingleDeptShort] = useState('');
+  const [bulkDeptInput, setBulkDeptInput] = useState('');
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -82,7 +88,13 @@ export function AdminSettings() {
         const settingsDoc = await getDoc(doc(db, 'siteSettings', 'general'));
         let currentSettings = { ...settings };
         if (settingsDoc.exists()) {
-          currentSettings = { ...currentSettings, ...settingsDoc.data() };
+          const docData = settingsDoc.data();
+          currentSettings = { ...currentSettings, ...docData };
+          if (!docData.departments || !Array.isArray(docData.departments) || docData.departments.length === 0) {
+            currentSettings.departments = [...DEPARTMENTS];
+          }
+        } else {
+          currentSettings.departments = [...DEPARTMENTS];
         }
 
         const referralDoc = await getDoc(doc(db, 'siteSettings', 'referral'));
@@ -263,6 +275,102 @@ export function AdminSettings() {
     }
   };
 
+  const handleAddSingleDept = () => {
+    if (!singleDeptName.trim() || !singleDeptShort.trim()) {
+      toast.error('Both department name and short code are required.');
+      return;
+    }
+    const name = singleDeptName.trim();
+    const short = singleDeptShort.trim().toUpperCase();
+
+    const currentDepts = settings.departments || [];
+    if (currentDepts.some(d => d.short === short)) {
+      toast.error(`Department code "${short}" already exists.`);
+      return;
+    }
+
+    setSettings({
+      ...settings,
+      departments: [...currentDepts, { name, short }]
+    });
+    setSingleDeptName('');
+    setSingleDeptShort('');
+    toast.success(`Added ${short} department locally! Click 'Save All Settings' to apply.`);
+  };
+
+  const handleBulkAddDepts = () => {
+    if (!bulkDeptInput.trim()) {
+      toast.error('Please enter departments for bulk import.');
+      return;
+    }
+
+    const items = bulkDeptInput.split(',');
+    const newDepts: Array<{ name: string; short: string }> = [];
+    
+    items.forEach(item => {
+      let trimmed = item.trim();
+      if (!trimmed) return;
+
+      let name = '';
+      let short = '';
+
+      const bracketMatch = trimmed.match(/^([^(]+)\s*\(([^)]+)\)$/) || trimmed.match(/^([^[]+)\s*\[([^\]]+)\]$/);
+      if (bracketMatch) {
+        name = bracketMatch[1].trim();
+        short = bracketMatch[2].trim().toUpperCase();
+      } else if (trimmed.includes(':')) {
+        const parts = trimmed.split(':');
+        const first = parts[0].trim();
+        const second = parts[1].trim();
+        if (first.length <= 5) {
+          short = first.toUpperCase();
+          name = second;
+        } else {
+          short = second.toUpperCase();
+          name = first;
+        }
+      } else if (trimmed.includes(' - ')) {
+        const parts = trimmed.split(' - ');
+        const first = parts[0].trim();
+        const second = parts[1].trim();
+        if (first.length <= 5) {
+          short = first.toUpperCase();
+          name = second;
+        } else {
+          short = second.toUpperCase();
+          name = first;
+        }
+      } else {
+        short = trimmed.toUpperCase();
+        name = trimmed;
+      }
+
+      if (short) {
+        newDepts.push({ name: name || short, short });
+      }
+    });
+
+    if (newDepts.length === 0) {
+      toast.error('Could not parse any valid departments from the input.');
+      return;
+    }
+
+    const currentDepts = settings.departments || [];
+    const deptsToAdd = newDepts.filter(nd => !currentDepts.some(cd => cd.short === nd.short));
+    
+    if (deptsToAdd.length === 0) {
+      toast.error('All parsed departments already exist in your list.');
+      return;
+    }
+
+    setSettings({
+      ...settings,
+      departments: [...currentDepts, ...deptsToAdd]
+    });
+    setBulkDeptInput('');
+    toast.success(`Successfully parsed and added ${deptsToAdd.length} new departments locally! Click 'Save All Settings' to apply.`);
+  };
+
   const handleTestEmail = async () => {
     if (!settings.gmailEmail || !settings.gmailAppPassword) {
       toast.error('Please enter Gmail credentials first');
@@ -303,15 +411,16 @@ export function AdminSettings() {
         });
         toast.success(data.message || 'Test email sent!');
       } else {
+        const errorMsg = data.details ? `${data.error}: ${data.details}` : (data.error || 'Failed to send test email');
         await logEmailClientSide({
           to: testRecipient,
           subject: "Seminar OS - Test Email Connection",
           status: 'failed',
-          error: data.error || 'Failed to send test email',
+          error: errorMsg,
           type: 'test',
           sentBy: auth.currentUser?.email || 'admin'
         });
-        toast.error(data.error || 'Failed to send test email');
+        toast.error(errorMsg);
       }
     } catch (error) {
       console.error('Error testing email:', error);
@@ -657,6 +766,142 @@ export function AdminSettings() {
                     />
                   </div>
                 </div>
+              </div>
+            </motion.section>
+
+            {/* Manage Departments */}
+            <motion.section 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="bg-white p-5 sm:p-8 rounded-3xl border border-slate-200 shadow-sm"
+            >
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-teal-50 rounded-xl flex items-center justify-center text-brand-teal-light">
+                    <Building2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900">Manage Departments</h2>
+                    <p className="text-xs text-slate-500 font-medium">Configure the departments that are available on the user registration and filter dropdowns.</p>
+                  </div>
+                </div>
+                <div className="px-3 py-1 bg-teal-50 text-brand-teal-light border border-teal-100 rounded-full text-xs font-bold">
+                  {settings.departments?.length || 0} Depts
+                </div>
+              </div>
+
+              {/* Add Single or Bulk */}
+              <div className="grid md:grid-cols-2 gap-8 mb-8 pb-8 border-b border-slate-100">
+                {/* Single Add */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Add Single Department</h3>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="col-span-2 space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase">Department Name</label>
+                      <input 
+                        type="text"
+                        placeholder="e.g. Computer Science"
+                        value={singleDeptName}
+                        onChange={(e) => setSingleDeptName(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-teal-light"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase">Short Code</label>
+                      <input 
+                        type="text"
+                        placeholder="e.g. CSE"
+                        value={singleDeptShort}
+                        onChange={(e) => setSingleDeptShort(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-teal-light"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddSingleDept}
+                    className="px-4 py-2 bg-slate-900 hover:bg-slate-850 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Department
+                  </button>
+                </div>
+
+                {/* Bulk Add */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Bulk Add Departments (Single Line)</h3>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Comma-Separated Departments</label>
+                    <input 
+                      type="text"
+                      placeholder="e.g. SWE, ME, Civil Engineering (CE), EEE: Electrical"
+                      value={bulkDeptInput}
+                      onChange={(e) => setBulkDeptInput(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-teal-light font-medium"
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-400 font-medium leading-normal">
+                    Supports simple codes (<code className="bg-slate-50 px-1 py-0.5 rounded border">CSE, SWE</code>), name/code brackets (<code className="bg-slate-50 px-1 py-0.5 rounded border">Software Engineering (SWE)</code>), or colon pairs (<code className="bg-slate-50 px-1 py-0.5 rounded border">CE: Civil Engineering</code>).
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleBulkAddDepts}
+                    className="px-4 py-2 bg-brand-teal-light hover:bg-brand-teal-dark text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    Bulk Import Departments
+                  </button>
+                </div>
+              </div>
+
+              {/* Department List */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Current Departments</h3>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm("Are you sure you want to reset to the default 36 university departments?")) {
+                        setSettings({ ...settings, departments: [...DEPARTMENTS] });
+                        toast.success("Reset local state to default departments. Click 'Save All Settings' to apply.");
+                      }
+                    }}
+                    className="text-xs text-red-500 hover:underline font-bold"
+                  >
+                    Reset to Default
+                  </button>
+                </div>
+                {(!settings.departments || settings.departments.length === 0) ? (
+                  <div className="text-center py-6 bg-slate-50 rounded-2xl border border-dashed border-slate-100">
+                    <p className="text-slate-400 text-xs font-medium">No departments configured. Defaults will be loaded.</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2.5 max-h-[300px] overflow-y-auto p-2 bg-slate-50 rounded-2xl border border-slate-100">
+                    {settings.departments.map((dept, idx) => (
+                      <div 
+                        key={idx} 
+                        className="inline-flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 bg-white border border-slate-200 rounded-full shadow-sm text-xs group"
+                      >
+                        <span className="font-bold text-brand-teal-light bg-teal-50 px-1.5 py-0.5 rounded-md text-[10px]">
+                          {dept.short}
+                        </span>
+                        <span className="text-slate-600 font-medium">{dept.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const filtered = settings.departments.filter((_, i) => i !== idx);
+                            setSettings({ ...settings, departments: filtered });
+                          }}
+                          className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                          title="Remove Department"
+                        >
+                          <XCircle className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </motion.section>
           </>

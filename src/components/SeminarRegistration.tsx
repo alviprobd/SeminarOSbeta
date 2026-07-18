@@ -277,7 +277,7 @@ export function SeminarRegistration() {
                           <Loader2 className="w-6 h-6 animate-spin" />
                         ) : (
                           <>
-                            Register Now
+                            {auth.currentUser ? 'Register Now' : 'Sign In to Register'}
                             <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
                           </>
                         )}

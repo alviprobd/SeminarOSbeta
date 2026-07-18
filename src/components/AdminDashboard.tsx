@@ -23,7 +23,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { cn } from '../lib/utils';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'motion/react';
-import { DEPARTMENTS, PREDEFINED_LOCATIONS } from '../constants';
+import { PREDEFINED_LOCATIONS } from '../constants';
+import { useDepartments } from '../hooks/useDepartments';
 import { CertificatePreview } from './CertificatePreview';
 import { Template } from '../types';
 import { CANVAS_WIDTH, CANVAS_HEIGHT, renderCertificateToCanvas } from '../lib/certificateRenderer';
@@ -214,6 +215,7 @@ const BannerUpload = ({ value, onChange, label = "Banner Image" }: { value: stri
 };
 
 export function AdminDashboard() {
+  const { departments } = useDepartments();
   const { seminarId } = useParams();
   const navigate = useNavigate();
   const [seminars, setSeminars] = useState<any[]>([]);
@@ -730,7 +732,21 @@ export function AdminDashboard() {
         });
         toast.success(`WhatsApp link sent to ${participantsToNotify.length} participants!`);
       } else {
-        toast.error('Failed to send WhatsApp link emails.');
+        const errorData = await response.json();
+        let msg = errorData.error || 'Failed to send WhatsApp link emails.';
+        if (errorData.results && Array.isArray(errorData.results)) {
+          const uniqueErrors = Array.from(new Set(
+            errorData.results
+              .filter((r: any) => !r.success && r.error)
+              .map((r: any) => r.error)
+          ));
+          if (uniqueErrors.length > 0) {
+            msg += `: ${uniqueErrors.join(', ')}`;
+          }
+        } else if (errorData.details) {
+          msg += `: ${errorData.details}`;
+        }
+        toast.error(msg);
       }
     } catch (error) {
       console.error('Error sending WhatsApp link email:', error);
@@ -927,7 +943,20 @@ export function AdminDashboard() {
 
           if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.error || `Failed to send batch starting at ${i + 1}`);
+            let msg = errorData.error || `Failed to send batch starting at ${i + 1}`;
+            if (errorData.results && Array.isArray(errorData.results)) {
+              const uniqueErrors = Array.from(new Set(
+                errorData.results
+                  .filter((r: any) => !r.success && r.error)
+                  .map((r: any) => r.error)
+              ));
+              if (uniqueErrors.length > 0) {
+                msg += `: ${uniqueErrors.join(', ')}`;
+              }
+            } else if (errorData.details) {
+              msg += `: ${errorData.details}`;
+            }
+            throw new Error(msg);
           }
           
           const batchResult = await response.json();
@@ -1168,10 +1197,10 @@ export function AdminDashboard() {
 
   // Analytics Data
   const deptData = useMemo(() => participants.reduce((acc: any, curr) => {
-    const deptShort = DEPARTMENTS.find(d => d.name === curr.studentDept || d.short === curr.studentDept)?.short || curr.studentDept || 'N/A';
+    const deptShort = departments.find(d => d.name === curr.studentDept || d.short === curr.studentDept)?.short || curr.studentDept || 'N/A';
     acc[deptShort] = (acc[deptShort] || 0) + 1;
     return acc;
-  }, {}), [participants]);
+  }, {}), [participants, departments]);
 
   const chartData = useMemo(() => Object.keys(deptData).map(name => ({ name, value: deptData[name] })), [deptData]);
   const COLORS = ['#4f46e5', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444'];
@@ -1689,7 +1718,7 @@ export function AdminDashboard() {
                             className="px-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-teal-light font-bold text-slate-600 dark:text-slate-400"
                           >
                             <option value="all">All Departments</option>
-                            {DEPARTMENTS.map(d => (
+                            {departments.map(d => (
                               <option key={d.short} value={d.short}>{d.short}</option>
                             ))}
                           </select>
@@ -1725,7 +1754,7 @@ export function AdminDashboard() {
                                     </td>
                                     <td className="py-5 px-4">
                                       <span className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-lg text-[10px] font-black uppercase tracking-widest">
-                                        {DEPARTMENTS.find(d => d.name === p.studentDept)?.short || p.studentDept}
+                                        {departments.find(d => d.name === p.studentDept || d.short === p.studentDept)?.short || p.studentDept}
                                       </span>
                                     </td>
                                     <td className="py-5 px-4">

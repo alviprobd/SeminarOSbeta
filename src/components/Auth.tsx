@@ -6,12 +6,13 @@ import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { Mail, Lock, User, Building2, ArrowRight, Loader2, AlertCircle, ChevronDown, RefreshCcw } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { DEPARTMENTS } from '../constants';
+import { useDepartments } from '../hooks/useDepartments';
 
 export function Auth() {
   const [isLogin, setIsLogin] = useState(true);
   const [showForgot, setShowForgot] = useState(false);
   const [loading, setLoading] = useState(false);
+  const { departments } = useDepartments();
   
   const [formData, setFormData] = useState({
     email: '',
@@ -127,7 +128,7 @@ export function Auth() {
                         onChange={(e) => setFormData({ ...formData, dept: e.target.value })}
                       >
                         <option value="" disabled className="dark:bg-slate-900">Select Department</option>
-                        {DEPARTMENTS.map((dept) => (
+                        {departments.map((dept) => (
                           <option key={dept.short} value={dept.short} className="dark:bg-slate-900">
                             {dept.name} ({dept.short})
                           </option>

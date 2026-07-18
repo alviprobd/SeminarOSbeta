@@ -16,9 +16,10 @@ import {
 import { format, startOfMonth, startOfWeek, isSameMonth, isSameWeek, parseISO, subMonths } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { cn } from '../lib/utils';
-import { DEPARTMENTS } from '../constants';
+import { useDepartments } from '../hooks/useDepartments';
 
 export function AdminAnalytics() {
+  const { departments } = useDepartments();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>({
     totalSeminars: 0,
@@ -101,7 +102,7 @@ export function AdminAnalytics() {
         // Dept Distribution
         const depts: any = {};
         filteredRegs.forEach(r => {
-          const deptShort = DEPARTMENTS.find(d => d.name === r.studentDept || d.short === r.studentDept)?.short || r.studentDept || 'N/A';
+          const deptShort = departments.find(d => d.name === r.studentDept || d.short === r.studentDept)?.short || r.studentDept || 'N/A';
           depts[deptShort] = (depts[deptShort] || 0) + 1;
         });
         const deptDistribution = Object.keys(depts).map(name => ({ name, value: depts[name] }));
