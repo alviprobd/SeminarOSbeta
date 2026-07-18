@@ -221,7 +221,7 @@ export function StudentDashboard() {
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
         {[
-          { label: 'Seminars Registered', value: registrations.length, icon: <BookOpen className="w-6 h-6" />, color: 'bg-teal-50 dark:bg-teal-900/20 text-brand-teal-light' },
+          { label: 'Seminars Registered by you', value: registrations.length, icon: <BookOpen className="w-6 h-6" />, color: 'bg-teal-50 dark:bg-teal-900/20 text-brand-teal-light' },
           { label: 'Attendance Rate', value: registrations.length ? `${Math.round((attendance.filter(a => a.attended).length / registrations.length) * 100)}%` : '0%', icon: <TrendingUp className="w-6 h-6" />, color: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400' },
           { label: 'Certificates Earned', value: certificates.length, icon: <Award className="w-6 h-6" />, color: 'bg-teal-50 dark:bg-teal-900/20 text-brand-teal-light' },
         ].map((stat, i) => (
@@ -243,11 +243,11 @@ export function StudentDashboard() {
         ))}
       </div>
 
-      <div className="grid lg:grid-cols-12 gap-8">
+      <div className="grid lg:grid-cols-12 gap-8 w-full max-w-full overflow-hidden lg:overflow-visible">
         {/* Main Content */}
-        <div className="lg:col-span-8 space-y-8">
+        <div className="lg:col-span-8 space-y-8 min-w-0 w-full">
           {/* Analytics Chart */}
-          <div className="p-4 sm:p-8 bg-white dark:bg-slate-900/40 dark:backdrop-blur-xl rounded-3xl border border-slate-100 dark:border-slate-800/50 shadow-sm">
+          <div className="p-4 sm:p-8 bg-white dark:bg-slate-900/40 dark:backdrop-blur-xl rounded-3xl border border-slate-100 dark:border-slate-800/50 shadow-sm overflow-hidden">
             <h3 className="font-bold text-slate-900 dark:text-white mb-8 flex items-center gap-2">
               <PieChartIcon className="w-5 h-5 text-brand-teal-light" />
               Registration Activity
@@ -274,7 +274,7 @@ export function StudentDashboard() {
           </div>
 
           {/* Certificates List */}
-          <div className="p-8 bg-white dark:bg-slate-900/40 dark:backdrop-blur-xl rounded-3xl border border-slate-100 dark:border-slate-800/50 shadow-sm">
+          <div className="p-4 sm:p-8 bg-white dark:bg-slate-900/40 dark:backdrop-blur-xl rounded-3xl border border-slate-100 dark:border-slate-800/50 shadow-sm overflow-hidden">
             <h3 className="font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
               <Award className="w-5 h-5 text-brand-teal-light" />
               Your Certificates
@@ -286,7 +286,7 @@ export function StudentDashboard() {
                 </div>
               ) : (
                 certificates.map(cert => (
-                  <div key={cert.id} className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 group hover:bg-white dark:hover:bg-slate-800 hover:shadow-md transition-all">
+                  <div key={cert.id} className="p-4 sm:p-6 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 group hover:bg-white dark:hover:bg-slate-800 hover:shadow-md transition-all">
                     <div className="flex justify-between items-start mb-4">
                       <div className="w-10 h-10 bg-teal-100 dark:bg-teal-900/30 rounded-xl flex items-center justify-center text-brand-teal-light">
                         <Award className="w-6 h-6" />
@@ -349,9 +349,9 @@ export function StudentDashboard() {
         </div>
 
         {/* Sidebar */}
-        <div className="lg:col-span-4 space-y-8">
+        <div className="lg:col-span-4 space-y-8 min-w-0 w-full">
           {/* Upcoming Seminars Card */}
-          <div className="p-8 bg-white dark:bg-slate-900/40 dark:backdrop-blur-xl rounded-3xl border border-slate-100 dark:border-slate-800/50 shadow-sm">
+          <div className="p-4 sm:p-8 bg-white dark:bg-slate-900/40 dark:backdrop-blur-xl rounded-3xl border border-slate-100 dark:border-slate-800/50 shadow-sm overflow-hidden">
             <h3 className="font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
               <Calendar className="w-5 h-5 text-brand-teal-light" />
               Upcoming Seminars
@@ -390,7 +390,7 @@ export function StudentDashboard() {
             </div>
           </div>
 
-          <div className="p-8 bg-white dark:bg-slate-900/40 dark:backdrop-blur-xl rounded-3xl border border-slate-100 dark:border-slate-800/50 shadow-sm">
+          <div className="p-4 sm:p-8 bg-white dark:bg-slate-900/40 dark:backdrop-blur-xl rounded-3xl border border-slate-100 dark:border-slate-800/50 shadow-sm overflow-hidden">
             <h3 className="font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
               <Calendar className="w-5 h-5 text-brand-teal-light" />
               Recent Registrations
@@ -402,7 +402,7 @@ export function StudentDashboard() {
                 registrations.map(reg => {
                   const att = attendance.find(a => a.seminarId === reg.seminarId);
                   return (
-                    <div key={reg.id} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+                    <div key={reg.id} className="flex items-center justify-between p-3 sm:p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 gap-2">
                       <div className="min-w-0">
                         <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{reg.seminarTitle || 'Seminar'}</p>
                         <p className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
@@ -422,7 +422,7 @@ export function StudentDashboard() {
             </div>
           </div>
 
-          <div className="p-8 bg-gradient-to-br from-brand-blue-dark to-brand-blue-light rounded-3xl text-white shadow-xl shadow-teal-100 dark:shadow-none">
+          <div className="p-4 sm:p-8 bg-gradient-to-br from-brand-blue-dark to-brand-blue-light rounded-3xl text-white shadow-xl shadow-teal-100 dark:shadow-none overflow-hidden">
             <h3 className="text-xl font-bold mb-2">Need Help?</h3>
             <p className="text-teal-100 dark:text-teal-200 text-sm mb-6 leading-relaxed">If you have any issues with your certificates or attendance, please contact the seminar administrator.</p>
             <button className="w-full py-3 bg-white/20 backdrop-blur-md text-white font-bold rounded-xl hover:bg-white/30 transition-all text-sm">

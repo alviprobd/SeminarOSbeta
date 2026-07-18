@@ -172,7 +172,7 @@ function AppContent({ user, userRole, loading, siteSettings, setUser, setUserRol
         isDarkMode && "dark"
       )}>
         <Navbar user={user} role={userRole} />
-        <main style={{ paddingTop: `${headerHeight}px` }}>
+        <main style={{ paddingTop: `${headerHeight}px` }} className="w-full overflow-x-hidden">
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/" element={
