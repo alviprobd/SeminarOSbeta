@@ -45,7 +45,7 @@ export function Auth() {
         await updateProfile(user, { displayName: formData.displayName });
         
         const adminEmails = ['alvicourse@gmail.com', 'cdc@creativealvi.com'];
-        const isAdmin = formData.email && adminEmails.includes(formData.email.toLowerCase());
+        const isAdmin = Boolean(formData.email) && adminEmails.includes((formData.email || '').toLowerCase());
         const role = isAdmin ? 'admin' : 'student';
 
         try {

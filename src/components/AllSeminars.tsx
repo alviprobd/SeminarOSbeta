@@ -93,10 +93,11 @@ export function AllSeminars() {
     }
   };
 
+  const search = (searchQuery || '').toLowerCase();
   const filteredSeminars = seminars
     .filter(s => {
-      const matchesSearch = s.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                           s.location.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesSearch = (s.title || '').toLowerCase().includes(search) || 
+                           (s.location || '').toLowerCase().includes(search);
       
       const seminarDate = parseISO(s.date);
       const matchesStartDate = !dateFilter.start || isAfter(seminarDate, startOfDay(parseISO(dateFilter.start)));

@@ -53,10 +53,11 @@ export function ExploreSeminars() {
     };
   }, []);
 
+  const search = (searchQuery || '').toLowerCase();
   const filteredSeminars = seminars.filter(s => 
-    s.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    s.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.description.toLowerCase().includes(searchQuery.toLowerCase())
+    (s.title || '').toLowerCase().includes(search) || 
+    (s.location || '').toLowerCase().includes(search) ||
+    (s.description || '').toLowerCase().includes(search)
   ).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   if (loading) {

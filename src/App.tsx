@@ -133,7 +133,7 @@ function AppContent({ user, userRole, loading, siteSettings, setUser, setUserRol
             setUserRole(userDoc.data().role);
           } else {
             const adminEmails = ['alvicourse@gmail.com', 'cdc@creativealvi.com'];
-            const isAdmin = firebaseUser.email && adminEmails.includes(firebaseUser.email.toLowerCase());
+            const isAdmin = Boolean(firebaseUser.email) && adminEmails.includes((firebaseUser.email || '').toLowerCase());
             const role = isAdmin ? 'admin' : 'student';
             await setDoc(doc(db, 'users', firebaseUser.uid), {
               uid: firebaseUser.uid,

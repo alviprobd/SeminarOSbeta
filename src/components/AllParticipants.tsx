@@ -61,9 +61,10 @@ export function AllParticipants() {
     // Only show registrations for seminars that belong to this admin
     if (!seminars[r.seminarId]) return false;
 
-    const matchesSearch = r.studentName.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         r.studentId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         r.studentEmail.toLowerCase().includes(searchQuery.toLowerCase());
+    const search = (searchQuery || '').toLowerCase();
+    const matchesSearch = (r.studentName || '').toLowerCase().includes(search) || 
+                         (r.studentId || '').toLowerCase().includes(search) ||
+                         (r.studentEmail || '').toLowerCase().includes(search);
     
     const matchesDept = deptFilter === 'all' || r.studentDept === deptFilter;
     const matchesSeminar = seminarFilter === 'all' || r.seminarId === seminarFilter;

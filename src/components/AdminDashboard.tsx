@@ -1205,9 +1205,10 @@ export function AdminDashboard() {
   const chartData = useMemo(() => Object.keys(deptData).map(name => ({ name, value: deptData[name] })), [deptData]);
   const COLORS = ['#4f46e5', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444'];
 
-  const filteredOngoing = useMemo(() => ongoingSeminars.filter(s => s.title.toLowerCase().includes(globalSearch.toLowerCase())), [ongoingSeminars, globalSearch]);
-  const filteredUpcoming = useMemo(() => upcomingSeminars.filter(s => s.title.toLowerCase().includes(globalSearch.toLowerCase())), [upcomingSeminars, globalSearch]);
-  const filteredCompleted = useMemo(() => completedSeminars.filter(s => s.title.toLowerCase().includes(globalSearch.toLowerCase())), [completedSeminars, globalSearch]);
+  const searchG = (globalSearch || '').toLowerCase();
+  const filteredOngoing = useMemo(() => ongoingSeminars.filter(s => (s.title || '').toLowerCase().includes(searchG)), [ongoingSeminars, searchG]);
+  const filteredUpcoming = useMemo(() => upcomingSeminars.filter(s => (s.title || '').toLowerCase().includes(searchG)), [upcomingSeminars, searchG]);
+  const filteredCompleted = useMemo(() => completedSeminars.filter(s => (s.title || '').toLowerCase().includes(searchG)), [completedSeminars, searchG]);
 
   const topParticipants = useMemo(() => participants
     .map(p => {
@@ -1217,15 +1218,16 @@ export function AdminDashboard() {
     .filter(p => p.attended)
     .slice(0, 5), [participants, attendance]);
 
+  const searchP = (participantSearch || '').toLowerCase();
   const filteredParticipants = useMemo(() => participants
     .filter(p => {
       const att = attendance.find(a => a.studentUid === p.studentUid);
       const status = att ? (att.attended ? 'attended' : 'absent') : 'pending';
-      const matchesSearch = p.studentName.toLowerCase().includes(participantSearch.toLowerCase()) || p.studentId.toLowerCase().includes(participantSearch.toLowerCase());
+      const matchesSearch = (p.studentName || '').toLowerCase().includes(searchP) || (p.studentId || '').toLowerCase().includes(searchP);
       const matchesDept = participantDeptFilter === 'all' || p.studentDept === participantDeptFilter;
       const matchesStatus = participantStatusFilter === 'all' || status === participantStatusFilter;
       return matchesSearch && matchesDept && matchesStatus;
-    }), [participants, attendance, participantSearch, participantDeptFilter, participantStatusFilter]);
+    }), [participants, attendance, searchP, participantDeptFilter, participantStatusFilter]);
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-950">
